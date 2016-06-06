@@ -113,7 +113,8 @@ void InitFBO(int linear, GLuint *ptid)
 {
   struct gbm_bo *bo = gbm_bo_create(gbm, TARGET_SIZE, TARGET_SIZE, 
 				    GBM_FORMAT_ARGB8888, 
-				    (linear ? GBM_BO_USE_LINEAR : 0) | 
+				    (linear ? GBM_BO_USE_LINEAR : 0) |
+				    GBM_BO_USE_RENDERING |
 				    GBM_BO_USE_SCANOUT);
   EGLImageKHR image = eglCreateImageKHR(display, context,
 					EGL_NATIVE_PIXMAP_KHR, bo, NULL);
@@ -286,10 +287,10 @@ void CopyTexure(GLuint program, GLuint tid)
     1, -1, 0
   };
   GLfloat tex[] = {
-    -1, -1,
-    -1, 1,
+    0, 0,
+    0, 1,
     1, 1,
-    1, -1
+    1, 0
   };
   GLuint index[] = {
     0, 1, 2,
@@ -342,6 +343,11 @@ int main(void)
   CopyTexure(InitGLES("copy_vert.glsl", "copy_frag.glsl", 1, NULL), tid);
   SaveFBO("copy_to_linear.png");
 
+  Render(InitGLES("vert.glsl", "frag.glsl", 0, &tid));
+  SaveFBO("render.png");
+  CopyTexure(InitGLES("copy_vert.glsl", "copy_frag.glsl", 0, NULL), tid);
+  SaveFBO("copy.png");
+  
   return 0;
 }
 

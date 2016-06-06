@@ -119,7 +119,7 @@ void ExportBO(struct context *export, struct context *import)
 {
   export->bo = gbm_bo_create(export->gbm, TARGET_SIZE, TARGET_SIZE, 
 			     GBM_FORMAT_ARGB8888, 
-			     //GBM_BO_USE_LINEAR |
+			     GBM_BO_USE_LINEAR |
 			     GBM_BO_USE_RENDERING |
 			     GBM_BO_USE_SCANOUT);
   int fd = gbm_bo_get_fd(export->bo);

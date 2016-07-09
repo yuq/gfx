@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 	assert(crtc);
 
 	drmModeFBPtr fb = drmModeGetFB(fd, crtc->buffer_id);
-    assert(fb);
+	assert(fb);
 
 	drmModePlaneResPtr plane_res = drmModeGetPlaneResources(fd);
 	assert(plane_res);

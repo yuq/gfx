@@ -34,7 +34,7 @@ struct context {
   struct gbm_bo *bo;
 };
 
-#define TARGET_SIZE 256
+#define TARGET_SIZE 19
 
 void GBMInit(struct context *ctx)
 {
@@ -45,22 +45,15 @@ void GBMInit(struct context *ctx)
   assert(ctx->gbm != NULL);
 }
 
-void ExportBO(struct context *export, struct context *import)
+void ExportBO(struct context *export)
 {
   export->bo = gbm_bo_create(export->gbm, TARGET_SIZE, TARGET_SIZE, 
 			     GBM_FORMAT_ARGB8888, 
 			     GBM_BO_USE_LINEAR |
 			     GBM_BO_USE_RENDERING |
 			     GBM_BO_USE_SCANOUT);
-  int fd = gbm_bo_get_fd(export->bo);
-  struct gbm_import_fd_data data;
-  data.fd = fd;
-  data.width = gbm_bo_get_width(export->bo);
-  data.height = gbm_bo_get_height(export->bo);
-  data.stride = gbm_bo_get_stride(export->bo);
-  import->bo = gbm_bo_import(import->gbm, GBM_BO_IMPORT_FD, &data, 0);
 
-  struct gbm_amdgpu_bo *amd_bo = (struct gbm_amdgpu_bo *)import->bo;
+  struct gbm_amdgpu_bo *amd_bo = (struct gbm_amdgpu_bo *)export->bo;
   struct amdgpu_bo_info info = {0};
   assert(amdgpu_bo_query_info(amd_bo->bo, &info) == 0);
   printf("alloc_size=%llx phys_alignment=%llx preferred_heap=%d alloc_flags=%llx\n",
@@ -78,13 +71,11 @@ int main(void)
 {
   struct context master, slave;
 
-  master.dev = "/dev/dri/card1";
-  slave.dev = "/dev/dri/card0";
+  master.dev = "/dev/dri/card0";
 
   GBMInit(&master);
-  GBMInit(&slave);
   
-  ExportBO(&master, &slave);
+  ExportBO(&master);
   
   return 0;
 }

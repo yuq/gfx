@@ -5,17 +5,15 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include <EGL/egl.h>
 #include <gbm.h>
 #include <png.h>
 
-#ifdef _OGLES_20_
-#include <GLES2/gl2.h>
-#endif
+//#include <epoxy/egl.h>
+//#include <epoxy/gl.h>
+#include <EGL/egl.h>
+#include <GL/gl.h>
 
-#ifdef _OGLES_30_
-#include <GLES3/gl3.h>
-#endif
+#include <xf86drm.h>
 
 GLuint program;
 
@@ -23,7 +21,7 @@ GLuint program;
 
 void RenderTargetInit(void)
 {
-  int fd = open("/dev/dri/renderD128", O_RDWR);
+  int fd = drmOpen("amdgpu", NULL);
   assert(fd >= 0);
 
   struct gbm_device *gbm = gbm_create_device(fd);
@@ -36,34 +34,19 @@ void RenderTargetInit(void)
   EGLint minorVersion;
   assert(eglInitialize(display, &majorVersion, &minorVersion) == EGL_TRUE);
 
-  EGLConfig config;
-  EGLint numConfigs;
-  const EGLint configAttribs[] = {
-    EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
-    EGL_RED_SIZE, 8,
-    EGL_GREEN_SIZE, 8,
-    EGL_BLUE_SIZE, 8,
-    EGL_DEPTH_SIZE, 24,
-    EGL_NONE
-  };
-  assert(eglChooseConfig(display, configAttribs, &config, 1, &numConfigs) == EGL_TRUE);
-
-  EGLSurface surface;
-  EGLint attribList[] = {
-    EGL_WIDTH, 0,
-    EGL_HEIGHT, 0,
-    EGL_NONE
-  };
-  surface = eglCreatePbufferSurface(display, config, attribList);
-
+  eglBindAPI(EGL_OPENGL_API);
+  
   EGLContext context;
   const EGLint contextAttribs[] = {
-    EGL_CONTEXT_CLIENT_VERSION, 2,
+    //EGL_CONTEXT_OPENGL_PROFILE_MASK_KHR,
+    //EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT_KHR,
+    //EGL_CONTEXT_MAJOR_VERSION_KHR, 3,
+    //EGL_CONTEXT_MINOR_VERSION_KHR, 1,
     EGL_NONE
   };
-  assert((context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribs)) != EGL_NO_CONTEXT);
+  assert((context = eglCreateContext(display, NULL, EGL_NO_CONTEXT, contextAttribs)) != EGL_NO_CONTEXT);
 
-  assert(eglMakeCurrent(display, surface, surface, context) == EGL_TRUE);
+  assert(eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context) == EGL_TRUE);
 }
 
 GLuint LoadShader(const char *name, GLenum type)
@@ -124,9 +107,11 @@ void CheckFrameBufferStatus(void)
   case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
     printf("GL_FRAMEBUFFER_MISSING_ATTACHMENT\n");
     break;
+    /*
   case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS:
     printf("GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS\n");
     break;
+    */
   default:
     printf("Framebuffer error\n");
   }
@@ -166,12 +151,7 @@ void InitGLES(void)
   glGenTextures(1, &texid);
   glBindTexture(GL_TEXTURE_2D, texid);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-  #ifdef _OGLES_30_
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, TARGET_SIZE, TARGET_SIZE, 0, GL_RGBA, GL_FLOAT, NULL);
-  #endif
-  #ifdef _OGLES_20_
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TARGET_SIZE, TARGET_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-  #endif
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -288,9 +268,7 @@ void Render(void)
 
   glFlush();
 
-  #ifdef _OGLES_30_
   glReadBuffer(GL_COLOR_ATTACHMENT0);
-  #endif
 
   GLubyte result[TARGET_SIZE * TARGET_SIZE * 4] = {0};
   glReadPixels(0, 0, TARGET_SIZE, TARGET_SIZE, GL_RGBA, GL_UNSIGNED_BYTE, result);
@@ -306,7 +284,7 @@ void Render(void)
   assert(!writeImage("screenshot.png", TARGET_SIZE, TARGET_SIZE, result, "hello"));
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
   RenderTargetInit();
   InitGLES();

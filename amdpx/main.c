@@ -1,5 +1,6 @@
 #include <X11/Xlib.h>
 #include <X11/Xlibint.h>
+#include <X11/extensions/Xcomposite.h>
 #include <stdio.h>
 #include <assert.h>
 
@@ -57,8 +58,8 @@ int main(int argc, char **argv)
     Display *display;
     assert((display = XOpenDisplay(NULL)) != NULL);
 
-	int opcode, event, error;
-	assert(XQueryExtension(display, "AMDPX", &opcode, &event, &error));
+    int opcode, event, error;
+    assert(XQueryExtension(display, "AMDPX", &opcode, &event, &error));
 
     int screen = DefaultScreen(display);
     Window root = DefaultRootWindow(display);
@@ -69,6 +70,17 @@ int main(int argc, char **argv)
     XMapWindow(display, window);
     XFlush(display);
 
-	canflip(display, window, opcode);
+    printf("create window %u\n", window);
+    canflip(display, window, opcode);
+
+    printf("root window %u\n", root);
+    canflip(display, root, opcode);
+
+    int comp_event, comp_error;
+    assert(XCompositeQueryExtension(display, &comp_event, &comp_error));
+    Window compw = XCompositeGetOverlayWindow(display, root);
+    printf("comp window %u\n", compw);
+    canflip(display, compw, opcode);
+    
     return 0;
 }

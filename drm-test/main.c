@@ -42,7 +42,8 @@ int main(int argc, char **argv)
     }
   }
   drmFreeDevices(devs, numdev);
-  
+
+  assert(argc > 1);
   int fd = drmOpen(argv[1], NULL);
   assert(fd >= 0);
 
@@ -55,7 +56,7 @@ int main(int argc, char **argv)
   u.unique = drmMalloc(u.unique_len + 1);
   ret = drmIoctl(fd, DRM_IOCTL_GET_UNIQUE, &u);
   u.unique[u.unique_len] = '\0';
-  printf("ret = %d len = %d\n", ret, u.unique_len);
+  printf("ret = %d len = %lu\n", ret, u.unique_len);
 
   uint32_t major_version, minor_version;
   amdgpu_device_handle device_handle;
@@ -69,9 +70,34 @@ int main(int argc, char **argv)
   req.flags = AMDGPU_GEM_CREATE_NO_CPU_ACCESS;
   assert(!amdgpu_bo_alloc(device_handle, &req, &buf_handle));
 
+  struct amdgpu_bo_info info;
+  assert(!amdgpu_bo_query_info(buf_handle, &info));
+  printf("heap=%d flags=%lx\n", info.preferred_heap, info.alloc_flags);
+  
   uint32_t shared_handle;
   assert(!amdgpu_bo_export(buf_handle, amdgpu_bo_handle_type_gem_flink_name, &shared_handle));
   printf("flink name = %x\n", shared_handle);
+
+  assert(!amdgpu_bo_query_info(buf_handle, &info));
+  printf("heap=%d flags=%lx\n", info.preferred_heap, info.alloc_flags);
+
+  int prime_fd;
+  assert(!amdgpu_bo_export(buf_handle, amdgpu_bo_handle_type_dma_buf_fd, &prime_fd));
+  printf("dma fd = %d\n", prime_fd);
+
+  assert(!amdgpu_bo_query_info(buf_handle, &info));
+  printf("heap=%d flags=%lx\n", info.preferred_heap, info.alloc_flags);
+
+  if (argc > 2) {
+    int fd = drmOpen(argv[2], NULL);
+    assert(fd >= 0);
+
+    uint32_t prime_handle;
+    assert(!drmPrimeFDToHandle(fd, prime_fd, &prime_handle));
+
+    assert(!amdgpu_bo_query_info(buf_handle, &info));
+    printf("heap=%d flags=%lx\n", info.preferred_heap, info.alloc_flags);
+  }
   
   amdgpu_bo_free(buf_handle);
   drmClose(fd);

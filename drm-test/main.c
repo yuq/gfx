@@ -67,7 +67,8 @@ int main(int argc, char **argv)
   req.alloc_size = 385024;
   req.phys_alignment = 256;
   req.preferred_heap = AMDGPU_GEM_DOMAIN_VRAM;
-  req.flags = AMDGPU_GEM_CREATE_NO_CPU_ACCESS;
+  //req.flags = AMDGPU_GEM_CREATE_NO_CPU_ACCESS;
+  req.flags = AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED;
   assert(!amdgpu_bo_alloc(device_handle, &req, &buf_handle));
 
   struct amdgpu_bo_info info;
@@ -81,6 +82,11 @@ int main(int argc, char **argv)
   assert(!amdgpu_bo_query_info(buf_handle, &info));
   printf("heap=%d flags=%lx\n", info.preferred_heap, info.alloc_flags);
 
+  void *cpu;
+  assert(!amdgpu_bo_cpu_map(buf_handle, &cpu));
+  printf("cpu addr=%p\n", cpu);
+  printf("heap=%d flags=%lx\n", info.preferred_heap, info.alloc_flags);
+  
   int prime_fd;
   assert(!amdgpu_bo_export(buf_handle, amdgpu_bo_handle_type_dma_buf_fd, &prime_fd));
   printf("dma fd = %d\n", prime_fd);

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 #include <libdrm/amdgpu.h>
@@ -44,7 +45,7 @@ int main(int argc, char **argv)
   drmFreeDevices(devs, numdev);
 
   assert(argc > 1);
-  int fd = drmOpen(argv[1], NULL);
+  int fd = open(argv[1], O_RDWR);
   assert(fd >= 0);
 
   printf("++++++++++++++++++++++\n");
@@ -68,7 +69,7 @@ int main(int argc, char **argv)
   req.phys_alignment = 256;
   req.preferred_heap = AMDGPU_GEM_DOMAIN_VRAM;
   //req.flags = AMDGPU_GEM_CREATE_NO_CPU_ACCESS;
-  req.flags = AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED;
+  req.flags = AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED | (1 << 31);
   assert(!amdgpu_bo_alloc(device_handle, &req, &buf_handle));
 
   struct amdgpu_bo_info info;
@@ -95,7 +96,7 @@ int main(int argc, char **argv)
   printf("heap=%d flags=%lx\n", info.preferred_heap, info.alloc_flags);
 
   if (argc > 2) {
-    int fd = drmOpen(argv[2], NULL);
+    int fd = open(argv[2], O_RDWR);
     assert(fd >= 0);
 
     uint32_t prime_handle;

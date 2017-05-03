@@ -30,6 +30,10 @@ int main(int argc, char **argv)
   amdgpu_device_handle device_handle;
   assert(!amdgpu_device_initialize(fd, &major_version, &minor_version, &device_handle));
 
+  struct drm_amdgpu_capability cap;
+  assert(!amdgpu_query_capability(device_handle, &cap));
+  assert(cap.flag & AMDGPU_CAPABILITY_SSG_FLAG);
+  
   amdgpu_bo_handle buf_handle;
   struct amdgpu_bo_alloc_request req = {0};
   req.alloc_size = 0x2000000;

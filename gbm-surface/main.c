@@ -20,15 +20,56 @@ struct gbm_surface *gs;
 
 #define TARGET_SIZE 256
 
+EGLConfig get_config(void)
+{
+	EGLint egl_config_attribs[] = {
+		EGL_BUFFER_SIZE,	32,
+		EGL_DEPTH_SIZE,		EGL_DONT_CARE,
+		EGL_STENCIL_SIZE,	EGL_DONT_CARE,
+		EGL_RENDERABLE_TYPE,	EGL_OPENGL_ES2_BIT,
+		EGL_SURFACE_TYPE,	EGL_WINDOW_BIT,
+		EGL_NONE,
+	};
+
+	EGLint num_configs;
+	assert(eglGetConfigs(display, NULL, 0, &num_configs) == EGL_TRUE);
+
+	EGLConfig *configs = malloc(num_configs * sizeof(EGLConfig));
+	assert(eglChooseConfig(display, egl_config_attribs,
+			       configs, num_configs, &num_configs) == EGL_TRUE);
+	assert(num_configs);
+	printf("num config %d\n", num_configs);
+
+	// Find a config whose native visual ID is the desired GBM format.
+	for (int i = 0; i < num_configs; ++i) {
+		EGLint gbm_format;
+
+		assert(eglGetConfigAttrib(display, configs[i],
+					  EGL_NATIVE_VISUAL_ID, &gbm_format) == EGL_TRUE);
+		printf("gbm format %x\n", gbm_format);
+
+		if (gbm_format == GBM_FORMAT_ARGB8888) {
+			EGLConfig ret = configs[i];
+			free(configs);
+			return ret;
+		}
+	}
+
+	// Failed to find a config with matching GBM format.
+	abort();
+}
+
 void RenderTargetInit(void)
 {
+	assert(epoxy_has_egl_extension(EGL_NO_DISPLAY, "EGL_MESA_platform_gbm"));
+
 	int fd = open("/dev/dri/renderD128", O_RDWR);
 	assert(fd >= 0);
 
 	gbm = gbm_create_device(fd);
 	assert(gbm != NULL);
 
-	assert((display = eglGetDisplay(gbm)) != EGL_NO_DISPLAY);
+	assert((display = eglGetPlatformDisplayEXT(EGL_PLATFORM_GBM_MESA, gbm, NULL)) != EGL_NO_DISPLAY);
 
 	EGLint majorVersion;
 	EGLint minorVersion;
@@ -36,27 +77,14 @@ void RenderTargetInit(void)
 
 	assert(eglBindAPI(EGL_OPENGL_ES_API) == EGL_TRUE);
 
-	EGLint n;
-	EGLConfig config;
-	const EGLint configAttribs[] = {
-		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-		EGL_RED_SIZE, 1,
-		EGL_GREEN_SIZE, 1,
-		EGL_BLUE_SIZE, 1,
-		EGL_ALPHA_SIZE, 1,
-		EGL_DEPTH_SIZE, 1,
-		EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
-		EGL_NONE
-	};
-	assert(eglChooseConfig(display, configAttribs, &config, 1, &n) == EGL_TRUE);
-	assert(n == 1);
+	EGLConfig config = get_config();
 
 	gs = gbm_surface_create(
 		gbm, TARGET_SIZE, TARGET_SIZE, GBM_BO_FORMAT_ARGB8888,
 		GBM_BO_USE_LINEAR|GBM_BO_USE_SCANOUT|GBM_BO_USE_RENDERING);
 	assert(gs);
 
-	assert((surface = eglCreateWindowSurface(display, config, gs, NULL)) != EGL_NO_SURFACE);
+	assert((surface = eglCreatePlatformWindowSurfaceEXT(display, config, gs, NULL)) != EGL_NO_SURFACE);
 
 	const EGLint contextAttribs[] = {
 		EGL_CONTEXT_CLIENT_VERSION, 2,
@@ -106,31 +134,6 @@ GLuint LoadShader(const char *name, GLenum type)
 	}
 
 	return shader;
-}
-
-void CheckFrameBufferStatus(void)
-{
-	GLenum status;
-	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	switch(status) {
-	case GL_FRAMEBUFFER_COMPLETE:
-		printf("Framebuffer complete\n");
-		break;
-	case GL_FRAMEBUFFER_UNSUPPORTED:
-		printf("Framebuffer unsuported\n");
-		break;
-	case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
-		printf("GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT\n");
-		break;
-	case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
-		printf("GL_FRAMEBUFFER_MISSING_ATTACHMENT\n");
-		break;
-	case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS:
-		printf("GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS\n");
-		break;
-	default:
-		printf("Framebuffer error\n");
-	}
 }
 
 void InitGLES(void)

@@ -265,7 +265,8 @@ void Render(void)
 	printf("%x\n", glGetError());
 	assert(glGetError() == GL_NO_ERROR);
 
-	glDrawElements(GL_TRIANGLES, sizeof(index)/sizeof(GLuint), GL_UNSIGNED_INT, index);
+	//glDrawElements(GL_TRIANGLES, sizeof(index)/sizeof(GLuint), GL_UNSIGNED_INT, index);
+	glDrawArrays(GL_TRIANGLES, 0, 3);
 
 	assert(glGetError() == GL_NO_ERROR);
 

@@ -17,9 +17,9 @@ int main(int argc, char **argv)
   int fd, newlyopened;
   drmVersionPtr retval;
   char *busid;
-  drmDevicePtr dev;
+  //drmDevicePtr dev;
   //*
-  fd = drmOpen(NULL, "pci:0000:00:02.0");
+  fd = drmOpen(NULL, "pci:0000:01:00.0");
   assert(fd >= 0);
   
   retval = drmGetVersion(fd);
@@ -28,15 +28,15 @@ int main(int argc, char **argv)
 
   busid = drmGetBusid(fd);
   printf("busid=%s\n", busid);
-  drmFreeBusid(busid);
-
+  drmFreeBusid(busid);  
+/*
   assert(!drmGetDevice(fd, &dev));
   printf("pci:%04x:%02x:%02x.%d\n",
 	   dev->businfo.pci->domain,
 	   dev->businfo.pci->bus,
 	   dev->businfo.pci->dev,
 	   dev->businfo.pci->func);
-
+*/
   drmClose(fd);
   //*/
 
@@ -51,16 +51,16 @@ int main(int argc, char **argv)
   busid = drmGetBusid(fd);
   printf("busid=%s\n", busid);
   drmFreeBusid(busid);
-
+/*
   assert(!drmGetDevice(fd, &dev));
   printf("pci:%04x:%02x:%02x.%d\n",
 	   dev->businfo.pci->domain,
 	   dev->businfo.pci->bus,
 	   dev->businfo.pci->dev,
 	   dev->businfo.pci->func);
-  
+*/
   drmClose(fd);
-
+/*
   drmDevicePtr devs[16];
   int num = drmGetDevices(devs, 16);
   assert(num >= 0);
@@ -72,7 +72,7 @@ int main(int argc, char **argv)
 	   devs[i]->businfo.pci->dev,
 	   devs[i]->businfo.pci->func);
   }
-  
+*/
   /*
   struct dirent *dent;
   struct stat sbuf;
@@ -88,6 +88,12 @@ int main(int argc, char **argv)
     printf("path=%s, dev=%x rdev=%x maj=%d min=%d\n", node, sbuf.st_dev, sbuf.st_rdev, major(sbuf.st_rdev), minor(sbuf.st_rdev));
   }
   */
+
+  fd = open("/dev/dri/card0", O_RDWR);
+  assert(fd >= 0);
+  char *path = drmGetDeviceNameFromFd(fd);
+  assert(path != NULL);
+  printf("get path = %s\n", path);
   return 0;
 }
 

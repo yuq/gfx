@@ -136,13 +136,13 @@ GLuint LoadShader(const char *name, GLenum type)
 	return shader;
 }
 
-void InitGLES(void)
+void InitGLES(const char *vert, const char *frag)
 {
 	GLint linked;
 	GLuint vertexShader;
 	GLuint fragmentShader;
-	assert((vertexShader = LoadShader("vert.glsl", GL_VERTEX_SHADER)) != 0);
-	assert((fragmentShader = LoadShader("frag.glsl", GL_FRAGMENT_SHADER)) != 0);
+	assert((vertexShader = LoadShader(vert, GL_VERTEX_SHADER)) != 0);
+	assert((fragmentShader = LoadShader(frag, GL_FRAGMENT_SHADER)) != 0);
 	assert((program = glCreateProgram()) != 0);
 	glAttachShader(program, vertexShader);
 	glAttachShader(program, fragmentShader);
@@ -160,10 +160,6 @@ void InitGLES(void)
 		glDeleteProgram(program);
 		exit(1);
 	}
-
-	glClearColor(0, 0, 0, 0);
-	glViewport(0, 0, TARGET_SIZE, TARGET_SIZE);
-	//glEnable(GL_DEPTH_TEST);
 
 	glUseProgram(program);
 }
@@ -241,42 +237,102 @@ finalise:
 	return code;
 }
 
+void CheckFrameBufferStatus(void)
+{
+  GLenum status;
+  status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  switch(status) {
+  case GL_FRAMEBUFFER_COMPLETE:
+    printf("Framebuffer complete\n");
+    break;
+  case GL_FRAMEBUFFER_UNSUPPORTED:
+    printf("Framebuffer unsuported\n");
+    break;
+  case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+    printf("GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT\n");
+    break;
+  case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+    printf("GL_FRAMEBUFFER_MISSING_ATTACHMENT\n");
+    break;
+  case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS:
+    printf("GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS\n");
+    break;
+  default:
+    printf("Framebuffer error\n");
+  }
+}
+
 void Render(void)
 {
+	glClearColor(0, 0, 0, 0);
+	glViewport(0, 0, TARGET_SIZE, TARGET_SIZE);
+
+	glActiveTexture(GL_TEXTURE0);
+
+	GLuint texid;
+	glGenTextures(1, &texid);
+	glBindTexture(GL_TEXTURE_2D, texid);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TARGET_SIZE, TARGET_SIZE,
+		     0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+
+	GLuint fbid;
+	glGenFramebuffers(1, &fbid);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbid);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texid, 0);
+
+	CheckFrameBufferStatus();
+
+	InitGLES("vert.glsl", "frag.glsl");
+
 	GLfloat vertex[] = {
 		-1, -1, 0,
 		-1, 1, 0,
 		1, 1, 0,
 		1, -1, 0
 	};
-	GLfloat v2[] = {
-		0.2, 0, 0,
-		0.2, 0, 0,
-		0.2, 0, 0,
-	};
-	GLuint index[] = {
-		0, 1, 2
-	};
 
 	GLint position = glGetAttribLocation(program, "positionIn");
 	glEnableVertexAttribArray(position);
 	glVertexAttribPointer(position, 3, GL_FLOAT, 0, 0, vertex);
-
-	GLint p2 = glGetAttribLocation(program, "p2In");
-	glEnableVertexAttribArray(p2);
-	glVertexAttribPointer(p2, 3, GL_FLOAT, 0, 0, v2);
-
 	assert(glGetError() == GL_NO_ERROR);
 
-	glClear(GL_COLOR_BUFFER_BIT 
-		//| GL_DEPTH_BUFFER_BIT
-		);
-	printf("%x\n", glGetError());
+	glClear(GL_COLOR_BUFFER_BIT);
 	assert(glGetError() == GL_NO_ERROR);
 
-	//glDrawElements(GL_TRIANGLES, sizeof(index)/sizeof(GLuint), GL_UNSIGNED_INT, index);
 	glDrawArrays(GL_TRIANGLES, 0, 3);
+	assert(glGetError() == GL_NO_ERROR);
 
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	InitGLES("vert-tex.glsl", "frag-tex.glsl");
+        glClear(GL_COLOR_BUFFER_BIT);
+
+	GLfloat tex[] = {
+		1, 1,
+		1, 0,
+		0, 1,
+		0, 0,
+	};
+
+	position = glGetAttribLocation(program, "positionIn");
+	glEnableVertexAttribArray(position);
+	glVertexAttribPointer(position, 3, GL_FLOAT, 0, 0, vertex);
+	assert(glGetError() == GL_NO_ERROR);
+
+	GLint texIn = glGetAttribLocation(program, "texIn");
+	glEnableVertexAttribArray(texIn);
+	glVertexAttribPointer(texIn, 2, GL_FLOAT, 0, 0, tex);
+	assert(glGetError() == GL_NO_ERROR);
+
+	GLint sample = glGetUniformLocation(program, "tex");
+	glUniform1i(sample, 0);
+	assert(glGetError() == GL_NO_ERROR);
+
+	glClear(GL_COLOR_BUFFER_BIT);
+	assert(glGetError() == GL_NO_ERROR);
+
+	glDrawArrays(GL_TRIANGLES, 0, 3);
 	assert(glGetError() == GL_NO_ERROR);
 
 	eglSwapBuffers(display, surface);
@@ -303,7 +359,6 @@ void Render(void)
 int main(void)
 {
 	RenderTargetInit();
-	InitGLES();
 	Render();
 	return 0;
 }

@@ -63,6 +63,10 @@ int main(int argc, char **argv)
   amdgpu_device_handle device_handle;
   assert(!amdgpu_device_initialize(fd, &major_version, &minor_version, &device_handle));
 
+  struct amdgpu_gpu_info di;
+  assert(!amdgpu_query_gpu_info(device_handle, &di));
+  printf("asic id %x\n", di.asic_id);
+
   amdgpu_bo_handle buf_handle;
   struct amdgpu_bo_alloc_request req = {0};
   req.alloc_size = 385024;

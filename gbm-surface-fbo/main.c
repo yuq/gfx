@@ -329,9 +329,6 @@ void Render(void)
 	glUniform1i(sample, 0);
 	assert(glGetError() == GL_NO_ERROR);
 
-	glClear(GL_COLOR_BUFFER_BIT);
-	assert(glGetError() == GL_NO_ERROR);
-
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 	assert(glGetError() == GL_NO_ERROR);
 

@@ -332,7 +332,7 @@ void Render(void)
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 	assert(glGetError() == GL_NO_ERROR);
 
-	eglSwapBuffers(display, surface);
+	//eglSwapBuffers(display, surface);
 
 #if 1
 	GLubyte result[TARGET_SIZE * TARGET_SIZE * 4] = {0};

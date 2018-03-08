@@ -249,11 +249,6 @@ void Render(void)
 		1, 1, 0,
 		1, -1, 0
 	};
-	GLfloat v2[] = {
-		0.2, 0, 0,
-		0.2, 0, 0,
-		0.2, 0, 0,
-	};
 	GLuint index[] = {
 		0, 1, 2
 	};
@@ -261,10 +256,6 @@ void Render(void)
 	GLint position = glGetAttribLocation(program, "positionIn");
 	glEnableVertexAttribArray(position);
 	glVertexAttribPointer(position, 3, GL_FLOAT, 0, 0, vertex);
-
-	GLint p2 = glGetAttribLocation(program, "p2In");
-	glEnableVertexAttribArray(p2);
-	glVertexAttribPointer(p2, 3, GL_FLOAT, 0, 0, v2);
 
 	assert(glGetError() == GL_NO_ERROR);
 

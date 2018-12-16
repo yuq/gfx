@@ -318,7 +318,8 @@ int main(void)
 	char name[32] = "dump0.png";
 	for (int i = 0; i < 2; i++) {
 		Render(i);
-		glFlush();
+		//glFlush();
+	        eglSwapBuffers(display, surface);
 		
 		GLubyte result[TARGET_SIZE * TARGET_SIZE * 4] = {0};
 		glReadPixels(0, 0, TARGET_SIZE, TARGET_SIZE, GL_RGBA, GL_UNSIGNED_BYTE, result);

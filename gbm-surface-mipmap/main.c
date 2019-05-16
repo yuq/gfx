@@ -18,8 +18,7 @@ EGLContext context;
 struct gbm_device *gbm;
 struct gbm_surface *gs;
 
-#define TARGET_W 688
-#define TARGET_H 1296
+#define TARGET_SIZE 256
 
 EGLConfig get_config(void)
 {
@@ -76,12 +75,12 @@ void RenderTargetInit(void)
 	EGLint minorVersion;
 	assert(eglInitialize(display, &majorVersion, &minorVersion) == EGL_TRUE);
 
-	assert(eglBindAPI(EGL_OPENGL_ES_API) == EGL_TRUE);
+	assert(eglBindAPI(EGL_OPENGL_API) == EGL_TRUE);
 
 	EGLConfig config = get_config();
 
 	gs = gbm_surface_create(
-		gbm, TARGET_W, TARGET_H, GBM_BO_FORMAT_ARGB8888,
+		gbm, TARGET_SIZE, TARGET_SIZE, GBM_BO_FORMAT_ARGB8888,
 		GBM_BO_USE_LINEAR|GBM_BO_USE_SCANOUT|GBM_BO_USE_RENDERING);
 	assert(gs);
 
@@ -96,79 +95,60 @@ void RenderTargetInit(void)
 	assert(eglMakeCurrent(display, surface, surface, context) == EGL_TRUE);
 }
 
-GLuint LoadShader(const char *name, GLenum type)
+void *readImage(char *filename, int *width, int *height)
 {
-	FILE *f;
-	int size;
-	char *buff;
-	GLuint shader;
-	GLint compiled;
-	const GLchar *source[1];
+	char header[8];    // 8 is the maximum size that can be checked
 
-	assert((f = fopen(name, "r")) != NULL);
+        /* open file and test for it being a png */
+        FILE *fp = fopen(filename, "rb");
+	assert(fp);
+        fread(header, 1, 8, fp);
+        assert(!png_sig_cmp(header, 0, 8));
 
-	// get file size
-	fseek(f, 0, SEEK_END);
-	size = ftell(f);
-	fseek(f, 0, SEEK_SET);
+        /* initialize stuff */
+        png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+	assert(png_ptr);
 
-	assert((buff = malloc(size)) != NULL);
-	assert(fread(buff, 1, size, f) == size);
-	source[0] = buff;
-	fclose(f);
-	shader = glCreateShader(type);
-	glShaderSource(shader, 1, source, &size);
-	glCompileShader(shader);
-	free(buff);
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
-	if (!compiled) {
-		GLint infoLen = 0;
-		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLen);
-		if (infoLen > 1) {
-			char *infoLog = malloc(infoLen);
-			glGetShaderInfoLog(shader, infoLen, NULL, infoLog);
-			fprintf(stderr, "Error compiling shader %s:\n%s\n", name, infoLog);
-			free(infoLog);
-		}
-		glDeleteShader(shader);
-		return 0;
+        png_infop info_ptr = png_create_info_struct(png_ptr);
+	assert(info_ptr);
+
+        assert(!setjmp(png_jmpbuf(png_ptr)));
+
+        png_init_io(png_ptr, fp);
+        png_set_sig_bytes(png_ptr, 8);
+
+        png_read_info(png_ptr, info_ptr);
+
+        *width = png_get_image_width(png_ptr, info_ptr);
+        *height = png_get_image_height(png_ptr, info_ptr);
+        int color_type = png_get_color_type(png_ptr, info_ptr);
+	assert(color_type == PNG_COLOR_TYPE_RGB);
+        int bit_depth = png_get_bit_depth(png_ptr, info_ptr);
+	assert(bit_depth == 8);
+	int pitch = png_get_rowbytes(png_ptr, info_ptr);
+
+        int number_of_passes = png_set_interlace_handling(png_ptr);
+        png_read_update_info(png_ptr, info_ptr);
+
+        /* read file */
+        assert(!setjmp(png_jmpbuf(png_ptr)));
+
+	png_bytep buffer = malloc(*height * pitch);
+	void *ret = buffer;
+	assert(buffer);
+        png_bytep *row_pointers = malloc(sizeof(png_bytep) * *height);
+	assert(row_pointers);
+        for (int i = 0; i < *height; i++) {
+                row_pointers[i] = buffer;
+		buffer += pitch;
 	}
 
-	return shader;
+        png_read_image(png_ptr, row_pointers);
+
+        fclose(fp);
+	free(row_pointers);
+	return ret;
 }
-
-void InitGLES(void)
-{
-	GLint linked;
-	GLuint vertexShader;
-	GLuint fragmentShader;
-	assert((vertexShader = LoadShader("vert.glsl", GL_VERTEX_SHADER)) != 0);
-	assert((fragmentShader = LoadShader("frag.glsl", GL_FRAGMENT_SHADER)) != 0);
-	assert((program = glCreateProgram()) != 0);
-	glAttachShader(program, vertexShader);
-	glAttachShader(program, fragmentShader);
-	glLinkProgram(program);
-	glGetProgramiv(program, GL_LINK_STATUS, &linked);
-	if (!linked) {
-		GLint infoLen = 0;
-		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infoLen);
-		if (infoLen > 1) {
-			char *infoLog = malloc(infoLen);
-			glGetProgramInfoLog(program, infoLen, NULL, infoLog);
-			fprintf(stderr, "Error linking program:\n%s\n", infoLog);
-			free(infoLog);
-		}
-		glDeleteProgram(program);
-		exit(1);
-	}
-
-	glClearColor(0, 0, 0, 0);
-	glViewport(0, 0, TARGET_W, TARGET_H);
-	//glEnable(GL_DEPTH_TEST);
-
-	glUseProgram(program);
-}
-
 
 int writeImage(char* filename, int width, int height, void *buffer, char* title)
 {
@@ -242,60 +222,38 @@ finalise:
 	return code;
 }
 
-void Render(void)
+void Render(int level)
 {
-	GLfloat vertex[] = {
-		-1, -1, 0,
-		-1, 1, 0,
-		1, 1, 0,
-		1, -1, 0
-	};
-	GLuint index[] = {
-		0, 1, 2
-	};
+	int w, h;
+	void *data = readImage("crate-base.png", &w, &h);
 
-	GLint position = glGetAttribLocation(program, "positionIn");
-	glEnableVertexAttribArray(position);
-	glVertexAttribPointer(position, 3, GL_FLOAT, 0, 0, vertex);
+	glActiveTexture(GL_TEXTURE0);
 
-	assert(glGetError() == GL_NO_ERROR);
+	GLuint texid = 0;
+        glGenTextures(1, &texid);
+	glBindTexture(GL_TEXTURE_2D, texid);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+	glGenerateMipmap(GL_TEXTURE_2D);
 
-	glClear(GL_COLOR_BUFFER_BIT 
-		//| GL_DEPTH_BUFFER_BIT
-		);
-	printf("%x\n", glGetError());
-	assert(glGetError() == GL_NO_ERROR);
+	GLubyte *texture = calloc(1, w * h * 4);
+	assert(texture);
+	glGetTexImage(GL_TEXTURE_2D, level, GL_RGBA, GL_UNSIGNED_BYTE, texture);
 
-	//glDrawElements(GL_TRIANGLES, sizeof(index)/sizeof(GLuint), GL_UNSIGNED_INT, index);
-	glDrawArrays(GL_TRIANGLES, 0, 3);
-
-	assert(glGetError() == GL_NO_ERROR);
-
-	eglSwapBuffers(display, surface);
-
-#if 1
-	GLubyte result[TARGET_W * TARGET_H * 4] = {0};
-	glReadPixels(0, 0, TARGET_W, TARGET_H, GL_RGBA, GL_UNSIGNED_BYTE, result);
-	assert(glGetError() == GL_NO_ERROR);
-#else
-	struct gbm_bo *bo = gbm_surface_lock_front_buffer(gs);
-	assert(bo);
-
-	uint32_t stride;
-	void *map_data;
-	GLubyte *result = gbm_bo_map(bo, 0, 0, TARGET_W, TARGET_H,
-				     GBM_BO_TRANSFER_READ, &stride, &map_data);
-	assert(result);
-	assert(stride == TARGET_W * 4);
-#endif
-
-	assert(!writeImage("screenshot.png", TARGET_W, TARGET_H, result, "hello"));
+	int tw = 0, th = 0;
+	glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_WIDTH, &tw);
+	glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_HEIGHT, &th);
+	assert(!writeImage("screenshot.png", tw, th, texture, "hello"));
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+	assert(argc == 2);
+
 	RenderTargetInit();
-	InitGLES();
-	Render();
+	Render(atoi(argv[1]));
 	return 0;
 }

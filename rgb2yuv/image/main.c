@@ -266,7 +266,7 @@ void rgb2yuv(const char *name)
 	glBindImageTexture(1, out_tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R8);
 	assert(glGetError() == GL_NO_ERROR);
 
-	glDispatchCompute((w + 15) >> 4, (h + 15) >> 4, 1);
+	glDispatchCompute((w / 2 + 15) >> 4, (h / 2 + 15) >> 4, 1);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
 	assert(glGetError() == GL_NO_ERROR);

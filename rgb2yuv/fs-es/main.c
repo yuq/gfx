@@ -316,20 +316,13 @@ void rgb2yuv(const char *name)
 		1, 1, 0,
 	};
 
-	GLfloat texcoord[] = {
-		0, 1,
-		0, 0,
-		1, 0,
-		1, 1,
-	};
-
 	GLushort index[] = {
 		0, 1, 3,
 		1, 2, 3,
 	};
 
-	GLuint VBO[3];
-	glGenBuffers(3, VBO);
+	GLuint VBO[2];
+	glGenBuffers(2, VBO);
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
 	glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(GLfloat) * 3, vertex, GL_STATIC_DRAW);
@@ -340,16 +333,7 @@ void rgb2yuv(const char *name)
 	glEnableVertexAttribArray(pos_uv);
 	glVertexAttribPointer(pos_uv, 3, GL_FLOAT, 0, 0, 0);
 
-	glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
-	glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(GLfloat) * 2, texcoord, GL_STATIC_DRAW);
-	GLint tex_y = glGetAttribLocation(program_y, "texcoordIn");
-	glEnableVertexAttribArray(tex_y);
-	glVertexAttribPointer(tex_y, 2, GL_FLOAT, 0, 0, 0);
-	GLint tex_uv = glGetAttribLocation(program_uv, "texcoordIn");
-	glEnableVertexAttribArray(tex_uv);
-	glVertexAttribPointer(tex_uv, 2, GL_FLOAT, 0, 0, 0);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, VBO[2]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, VBO[1]);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(GLushort), index, GL_STATIC_DRAW);
 
 	assert(glGetError() == GL_NO_ERROR);

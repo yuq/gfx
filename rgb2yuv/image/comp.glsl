@@ -40,6 +40,10 @@ void main()
 	      base.y + int(gl_GlobalInvocationID.y));
 	ivec2 vidx = ivec2(uidx.x + 1, uidx.y);
 	vec2 uv = (yuv0.gb + yuv1.gb + yuv2.gb + yuv3.gb) / 4.0;
+	vec2 offset = vec2(0.436, 0.615);
+	vec2 scale = vec2(0.872, 1.23);
+	// normalize uv to [0, 1]
+	uv = (uv + offset) / scale;
 	imageStore(img_out, uidx, vec4(uv.x));
 	imageStore(img_out, vidx, vec4(uv.y));
 }

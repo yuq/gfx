@@ -23,5 +23,10 @@ void main() {
     color.b = dot(conv_u, rgb);
     color.a = dot(conv_v, rgb);
 
+    //normalize uv to [0, 1]
+    vec4 offset = vec4(0.436, 0.615, 0.436, 0.615);
+    vec4 scale = vec4(0.872, 1.23, 0.872, 1.23);
+    color = (color + offset) / scale;
+
     fragColor = color;
 }

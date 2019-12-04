@@ -31,7 +31,12 @@ void main()
 	imageStore(img_out, ivec2(x, y * 2 + 1),
 		   vec4(yuv[1][0].r, yuv[1][1].r, yuv[1][2].r, yuv[1][3].r));
 
-	vec2 uv0 = yuv[0][0].gb + yuv[0][1].gb + yuv[1][0].gb + yuv[1][1].gb;
-	vec2 uv1 = yuv[0][2].gb + yuv[0][3].gb + yuv[1][2].gb + yuv[1][3].gb;
-	imageStore(img_out, ivec2(x, base.y + y), vec4(uv0, uv1) / 4.0);
+	vec2 offset = vec2(0.436, 0.615);
+	vec2 scale = vec2(0.872, 1.23);
+	vec2 uv0 = (yuv[0][0].gb + yuv[0][1].gb + yuv[1][0].gb + yuv[1][1].gb) / 4.0;
+	// normalize uv to [0, 1]
+	uv0 = (uv0 + offset) / scale;
+	vec2 uv1 = (yuv[0][2].gb + yuv[0][3].gb + yuv[1][2].gb + yuv[1][3].gb) / 4.0;
+	uv1 = (uv1 + offset) / scale;
+	imageStore(img_out, ivec2(x, base.y + y), vec4(uv0, uv1));
 }

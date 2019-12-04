@@ -25,10 +25,10 @@ void main()
 	     0.615,    -0.51499, -0.10001
 	);
 
-	vec3 yuv0 = conv_mat * rgb0;
-	vec3 yuv1 = conv_mat * rgb1;
-	vec3 yuv2 = conv_mat * rgb2;
-	vec3 yuv3 = conv_mat * rgb3;
+	vec3 yuv0 = rgb0 * conv_mat;
+	vec3 yuv1 = rgb1 * conv_mat;
+	vec3 yuv2 = rgb2 * conv_mat;
+	vec3 yuv3 = rgb3 * conv_mat;
 
 	imageStore(img_out, idx0, vec4(yuv0.r));
 	imageStore(img_out, idx1, vec4(yuv1.r));

@@ -22,7 +22,7 @@ void main()
 	    for (int j = 0; j < 4; j++) {
 	    	ivec2 idx = ivec2(x * 4 + j, y * 2 + i);
 		vec3 rgb = imageLoad(img_in, idx).rgb;
-	    	yuv[i][j] = conv_mat * rgb;
+	    	yuv[i][j] = rgb * conv_mat;
 	    }
 	}
 

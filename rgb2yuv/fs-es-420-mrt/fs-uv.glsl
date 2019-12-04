@@ -8,7 +8,7 @@ layout(location = 1) out vec4 fragColor1;
 void main() {
     ivec2 tex_size = textureSize(texMap, 0);
     vec2 tex_coord = 2.0 * gl_FragCoord.xy / vec2(tex_size);
-    vec3 conv_u = vec3(0.299, 0.587, 0.114);
+    vec3 conv_u = vec3(-0.14713, -0.28886, 0.436);
     vec3 conv_v = vec3(0.615, -0.51499, -0.10001);
     vec3 rgb = texture(texMap, tex_coord).rgb;
     fragColor0 = vec4(dot(conv_u, rgb), 0 , 0, 1);

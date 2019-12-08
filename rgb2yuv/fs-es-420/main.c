@@ -363,7 +363,8 @@ void rgb2yuv(const char *name)
 	assert(glGetError() == GL_NO_ERROR);
 
 	assert(!writeImage("y.png", w, h, w, data, "hello"));
-	assert(!writeImage("uv.png", w, h / 2, w, data + h * w, "hello"));
+	assert(!writeImage("u.png", w / 2, h / 2, w, data + h * w, "hello"));
+	assert(!writeImage("v.png", w / 2, h / 2, w, data + h * w + w / 2, "hello"));
 
 	free(data);
 }

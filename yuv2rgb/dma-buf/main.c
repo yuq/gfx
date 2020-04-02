@@ -19,6 +19,10 @@ EGLContext context;
 struct gbm_device *gbm;
 GLuint program;
 
+#define OFFSET_ALIGNMENT 256
+#define PITCH_ALIGNMENT 256
+#define ALIGN(x, a) (((x) + (a) - 1) & ~((a) - 1))
+
 void *readImage(const char *filename, int *width, int *height)
 {
 	char header[8];    // 8 is the maximum size that can be checked
@@ -310,9 +314,18 @@ void yuv2rgb(const char *ypng, const char *upng, const char *vpng)
 	assert(v);
 	assert(uw == vw && uh == vh);
 
-	int bw = yw / 2, bh = yh * 3 / 2;
+	/* HAL_PIXEL_FORMAT_YV12 need cstride = align(ystride / 2, 16)
+	 * amd gpu need both offset and pitch aligned to 256
+	 * lima gpu need offset align to 64
+	 */
+	int cstride = ALIGN(yw / 2, PITCH_ALIGNMENT);
+	int ystride = cstride * 2;
+	int uoff = ALIGN(ystride * yh, OFFSET_ALIGNMENT);
+	int voff = ALIGN(uoff + cstride * uh, OFFSET_ALIGNMENT);
+	int bw = ystride, bh = (voff + cstride * vh + ystride - 1) / ystride;
+
 	struct gbm_bo *bo =
-		gbm_bo_create(gbm, bw, bh, GBM_FORMAT_GR88,
+		gbm_bo_create(gbm, bw, bh, GBM_FORMAT_R8,
 			      GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING);
 	assert(bo);
 
@@ -320,16 +333,10 @@ void yuv2rgb(const char *ypng, const char *upng, const char *vpng)
 	void *map_data = NULL;
 	void *cpu = gbm_bo_map(bo, 0, 0, bw, bh, GBM_BO_TRANSFER_WRITE, &stride, &map_data);
 	assert(cpu);
-
-	int ystride = stride;
-	int cstride = stride / 2;
+	assert(stride == ystride);
 
 	copy_image(cpu, y, yw, yh, ystride);
-
-	int uoff = yh * ystride;
 	copy_image(cpu + uoff, u, uw, uh, cstride);
-
-	int voff = uoff + uh * cstride;
 	copy_image(cpu + voff, v, vw, vh, cstride);
 
 	gbm_bo_unmap(bo, map_data);

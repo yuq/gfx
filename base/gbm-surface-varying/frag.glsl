@@ -1,7 +1,7 @@
 #version 430
 
-centroid in vec2 color_rg;
-in float color_b;
+noperspective in vec2 color_rg;
+flat in float color_b;
 
 out vec4 fragColor;
 

@@ -3,8 +3,8 @@
 in vec3 positionIn;
 in vec3 colorIn;
 
-centroid out vec2 color_rg;
-out float color_b;
+noperspective out vec2 color_rg;
+flat out float color_b;
 
 void main()
 {

@@ -1,10 +1,11 @@
 #version 430
 
-in vec3 color;
+layout(location = 0) in vec3 color;
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 
-uniform float color_f;
+//uniform vec3 color_v;
+layout(location = 1) uniform float color_f;
 
 void main() {
 

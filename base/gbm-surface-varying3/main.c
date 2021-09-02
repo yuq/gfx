@@ -254,15 +254,15 @@ void Render(void)
 		0, 1, 2
 	};
 
-	GLint position = glGetAttribLocation(program, "positionIn");
+	GLint position = 0;
 	glEnableVertexAttribArray(position);
 	glVertexAttribPointer(position, 3, GL_FLOAT, 0, 0, vertex);
 
-	GLint color_v = glGetUniformLocation(program, "color_v[3]");
-	glUniform3f(color_v, 0.2, 0, 0);
+	GLint color_v = glGetUniformLocation(program, "color_v");
+	glUniform3f(color_v, 0.5, 0, 0);
 
 	GLint color_f = glGetUniformLocation(program, "color_f");
-	glUniform1f(color_f, 0.2);
+	glUniform1f(color_f, 0.0);
 
 	assert(glGetError() == GL_NO_ERROR);
 

@@ -3,3 +3,6 @@ screenshot*.png
 dump*.png
 *.out
 *.spv
+GTAGS
+GPATH
+GRTAGS

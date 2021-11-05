@@ -12,6 +12,13 @@
 #define TARGET_W 256
 #define TARGET_H 256
 
+static void print_result(void)
+{
+	GLubyte result[4];
+	glReadPixels(TARGET_W/2, TARGET_H/2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, result);
+	printf("result: %x %x %x %x\n", result[0], result[1], result[2], result[3]);
+}
+
 int main(void)
 {
 	Display *display;
@@ -72,14 +79,25 @@ int main(void)
 
 			glClearColor(1, 0, 0, 0);
 			glClear(GL_COLOR_BUFFER_BIT);
-			eglSwapBuffers(dpy, surface);
+			glFlush();
+			//eglSwapBuffers(dpy, surface);
+
+			print_result();
 
 			XCopyArea(display, pixmap, window, gc, 
 				  0, 0, TARGET_W / 2, TARGET_H / 2, 0, 0);
 
+			// for xserver really done the copy before next clear
+			// because the pixmap is single buffered
+			XFlush(display);
+			sleep(1);
+
 			glClearColor(0, 0, 1, 0);
 			glClear(GL_COLOR_BUFFER_BIT);
-			eglSwapBuffers(dpy, surface);
+			glFlush();
+			//eglSwapBuffers(dpy, surface);
+
+			print_result();
 
 			XCopyArea(display, pixmap, window, gc, 
 				  0, 0, TARGET_W / 2, TARGET_H / 2,

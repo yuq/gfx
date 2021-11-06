@@ -89,8 +89,7 @@ int main(void)
 
 			// for xserver really done the copy before next clear
 			// because the pixmap is single buffered
-			XFlush(display);
-			sleep(1);
+			XSync(display, False);
 
 			glClearColor(0, 0, 1, 0);
 			glClear(GL_COLOR_BUFFER_BIT);

@@ -18,7 +18,7 @@ EGLContext context;
 struct gbm_device *gbm;
 struct gbm_surface *gs;
 
-#define TARGET_SIZE 256
+#define TARGET_SIZE 512
 
 EGLConfig get_config(void)
 {
@@ -186,7 +186,7 @@ void *readImage(char *filename, int *width, int *height)
         *width = png_get_image_width(png_ptr, info_ptr);
         *height = png_get_image_height(png_ptr, info_ptr);
         int color_type = png_get_color_type(png_ptr, info_ptr);
-	assert(color_type == PNG_COLOR_TYPE_RGB_ALPHA);
+	assert(color_type == PNG_COLOR_TYPE_GRAY);
         int bit_depth = png_get_bit_depth(png_ptr, info_ptr);
 	assert(bit_depth == 8);
 	int pitch = png_get_rowbytes(png_ptr, info_ptr);
@@ -306,17 +306,17 @@ void Render(void)
 
 	assert(glGetError() == GL_NO_ERROR);
 
-	glGetInternalformativ(GL_TEXTURE_2D, GL_RGBA8, GL_NUM_VIRTUAL_PAGE_SIZES_ARB,
+	glGetInternalformativ(GL_TEXTURE_2D, GL_R8, GL_NUM_VIRTUAL_PAGE_SIZES_ARB,
 			      1, &value);
 	assert(value == 1);
 
-	glGetInternalformativ(GL_TEXTURE_2D, GL_RGBA8, GL_VIRTUAL_PAGE_SIZE_X_ARB,
+	glGetInternalformativ(GL_TEXTURE_2D, GL_R8, GL_VIRTUAL_PAGE_SIZE_X_ARB,
 			      1, &value);
-	assert(value == 128);
-	glGetInternalformativ(GL_TEXTURE_2D, GL_RGBA8, GL_VIRTUAL_PAGE_SIZE_Y_ARB,
+	assert(value == 256);
+	glGetInternalformativ(GL_TEXTURE_2D, GL_R8, GL_VIRTUAL_PAGE_SIZE_Y_ARB,
 			      1, &value);
-	assert(value == 128);
-	glGetInternalformativ(GL_TEXTURE_2D, GL_RGBA8, GL_VIRTUAL_PAGE_SIZE_Z_ARB,
+	assert(value == 256);
+	glGetInternalformativ(GL_TEXTURE_2D, GL_R8, GL_VIRTUAL_PAGE_SIZE_Z_ARB,
 			      1, &value);
 	assert(value == 1);
 
@@ -332,7 +332,7 @@ void Render(void)
 
 	assert(glGetError() == GL_NO_ERROR);
 
-	glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, 8192, 8192);
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, 8192, 8192);
 
 	assert(glGetError() == GL_NO_ERROR);
 
@@ -341,15 +341,15 @@ void Render(void)
 
 	assert(glGetError() == GL_NO_ERROR);
 
-	glTexPageCommitmentARB(GL_TEXTURE_2D, 0, 0, 0, 0, 128, 128, 1, true);
+	glTexPageCommitmentARB(GL_TEXTURE_2D, 0, 0, 0, 0, 256, 256, 1, true);
 
 	assert(glGetError() == GL_NO_ERROR);
 
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RED, GL_UNSIGNED_BYTE, data);
 
 	assert(glGetError() == GL_NO_ERROR);
 
-	glBindImageTexture(0, texin, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA8);
+	glBindImageTexture(0, texin, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R8);
 
 	assert(glGetError() == GL_NO_ERROR);
 

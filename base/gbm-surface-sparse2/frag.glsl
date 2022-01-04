@@ -9,8 +9,5 @@ void main() {
      vec4 texel;
      int code = sparseTextureARB(tex, texv, texel);
      bool is_resident = sparseTexelsResidentARB(code);
-     if (is_resident)
-          out_color = vec4(texel.xyz, 1.0);
-     else
-          out_color = vec4(1.0, 0.0, 0.0, 1.0);
+     out_color = is_resident ? texel : vec4(1.0, 0.0, 0.0, 1.0);
 }

@@ -139,6 +139,10 @@ int main(void)
 
 			if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU ||
 			    deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+				printf("device %s api=%x driver=%x vendor=%x\n",
+				       deviceProperties.deviceName, deviceProperties.apiVersion,
+				       deviceProperties.driverVersion, deviceProperties. vendorID);
+
 				assert(deviceProperties.sparseProperties.residencyStandard2DBlockShape &&
 				       deviceProperties.sparseProperties.residencyNonResidentStrict);
 				assert(deviceFeatures.sparseBinding &&

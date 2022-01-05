@@ -1,0 +1,12 @@
+#version 430 compatibility
+
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(r8, binding = 0) uniform readonly mediump image2D img_in;
+layout(rgba8, binding = 1) uniform writeonly mediump image2D img_out;
+
+void main()
+{
+	ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+	vec4 color = imageLoad(img_in, pos);
+	imageStore(img_out, pos, color);
+}

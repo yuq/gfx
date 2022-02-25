@@ -60,11 +60,11 @@ EGLConfig get_config(void)
 	abort();
 }
 
-void RenderTargetInit(void)
+void RenderTargetInit(char *name)
 {
 	assert(epoxy_has_egl_extension(EGL_NO_DISPLAY, "EGL_MESA_platform_gbm"));
 
-	int fd = open("/dev/dri/renderD128", O_RDWR);
+	int fd = open(name, O_RDWR);
 	assert(fd >= 0);
 
 	gbm = gbm_create_device(fd);
@@ -292,9 +292,13 @@ void Render(void)
 	assert(!writeImage("screenshot.png", TARGET_W, TARGET_H, result, "hello"));
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
-	RenderTargetInit();
+	char *name = "/dev/dri/renderD128";
+	if (argc > 1)
+		name = argv[1];
+
+	RenderTargetInit(name);
 	InitGLES();
 	Render();
 	return 0;

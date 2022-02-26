@@ -142,15 +142,24 @@ void Render(void)
 	glPopName();
 	glPushName(3);
 	glBegin(GL_QUADS);
-	glVertex3f(-1, -1, 0.1);
-	glVertex3f(-1, 1, 0.1);
-	glVertex3f(1, 1, 0.1);
-	glVertex3f(1, -1, 0.1);
+	glVertex3f(-1, -1, 1);
+	glVertex3f(-1, 1, 1);
+	glVertex3f(1, 1, 1);
+	glVertex3f(1, -1, 1);
 
 	glVertex3f(-1, -1, 0.5);
 	glVertex3f(-1, 1, 0.5);
 	glVertex3f(1, 1, 0.5);
 	glVertex3f(1, -1, 0.5);
+	glEnd();
+
+	glPopName();
+	glPushName(5);
+	glBegin(GL_QUADS);
+	glVertex3f(-1, -1, -1);
+	glVertex3f(-1, 1, -1);
+	glVertex3f(1, 1, -1);
+	glVertex3f(1, -1, -1);
 	glEnd();
 
 	assert(glGetError() == GL_NO_ERROR);
@@ -170,7 +179,7 @@ void Render(void)
 
 	int index = 0;
 	for (int i = 0; i < nbRecords; i++) {
-		printf("num name=%d min/max depth=%d/%d names: ",
+		printf("num name=%d min/max depth=%x/%x names: ",
 		       select_buffer[index], select_buffer[index + 1],
 		       select_buffer[index + 2]);
 

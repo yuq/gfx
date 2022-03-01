@@ -108,6 +108,8 @@ void Render(void)
 	glSelectBuffer(BUFF_SIZE, select_buffer);
 	glRenderMode(GL_SELECT);
 
+	//glDepthRange(0, 0.5);
+
 	assert(glGetError() == GL_NO_ERROR);
 
 	glMatrixMode(GL_PROJECTION);

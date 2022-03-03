@@ -185,6 +185,22 @@ void Render(void)
 
 	assert(glGetError() == GL_NO_ERROR);
 
+	GLfloat planes[] = {
+		1, 0, 0, 1,
+		-1, 0, 0, 1,
+		0, 1, 0, 1,
+		0, -1, 0, 1,
+		0, 0, 1, 1,
+		0, 0, -1, 1,
+	};
+	GLuint clip_planes;
+	glGenBuffers(1, &clip_planes);
+	glBindBuffer(GL_UNIFORM_BUFFER, clip_planes);
+	glBufferData(GL_UNIFORM_BUFFER, sizeof(planes), planes, GL_STATIC_DRAW);
+	glBindBufferBase(GL_UNIFORM_BUFFER, 0, clip_planes);
+
+	assert(glGetError() == GL_NO_ERROR);
+
 	unsigned data[] = {
 		0, 0xffffffff, 0,
 		0, 0xffffffff, 0,
@@ -203,7 +219,7 @@ void Render(void)
 	assert(glGetError() == GL_NO_ERROR);
 
 	//glFinish();
-	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+	//glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 	unsigned result[3 * 3] = {0};
 	glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(result), result);

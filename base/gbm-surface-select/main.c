@@ -4,6 +4,7 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <gbm.h>
 
@@ -101,6 +102,9 @@ void RenderTargetInit(char *name)
 
 void Render(void)
 {
+	struct timespec tv1, tv2;
+	assert(!clock_gettime(CLOCK_MONOTONIC_RAW, &tv1));
+
 #define OBJ_NUM 3
 #define NAME_DEPTH 2
 #define BUFF_SIZE (OBJ_NUM * (3 + NAME_DEPTH))
@@ -192,6 +196,15 @@ void Render(void)
 
 		index += 3 + j;
 	}
+
+	assert(!clock_gettime(CLOCK_MONOTONIC_RAW, &tv2));
+	double start = tv1.tv_sec;
+	start = start * 1e9 + tv1.tv_nsec;
+
+	double end = tv2.tv_sec;
+	end = end * 1e9 + tv2.tv_nsec;
+
+	printf("render time %f\n", end - start);
 }
 
 int main(int argc, char **argv)
@@ -201,6 +214,7 @@ int main(int argc, char **argv)
 		name = argv[1];
 
 	RenderTargetInit(name);
+	Render();
 	Render();
 	return 0;
 }

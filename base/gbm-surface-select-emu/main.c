@@ -4,6 +4,7 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <gbm.h>
 
@@ -164,6 +165,9 @@ void InitGLES(void)
 
 void Render(void)
 {
+	struct timespec tv1, tv2;
+	assert(!clock_gettime(CLOCK_MONOTONIC_RAW, &tv1));
+
 	GLfloat vertex[] = {
 		-1, -1, 0,
 		-1, 1, 0,
@@ -227,6 +231,15 @@ void Render(void)
 	assert(glGetError() == GL_NO_ERROR);
 
 	printf("result: %x %x %x\n", result[0], result[1], result[2]);
+
+	assert(!clock_gettime(CLOCK_MONOTONIC_RAW, &tv2));
+	double start = tv1.tv_sec;
+	start = start * 1e9 + tv1.tv_nsec;
+
+	double end = tv2.tv_sec;
+	end = end * 1e9 + tv2.tv_nsec;
+
+	printf("render time %f\n", end - start);
 }
 
 int main(int argc, char **argv)
@@ -237,6 +250,7 @@ int main(int argc, char **argv)
 
 	RenderTargetInit(name);
 	InitGLES();
+	Render();
 	Render();
 	return 0;
 }

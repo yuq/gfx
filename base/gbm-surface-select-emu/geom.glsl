@@ -113,6 +113,14 @@ bool clip_with_plane(inout vec3 vert[MAX_VERTEX], inout int num_vert, vec4 plane
     return false;
 }
 
+bool bounding_box_culling(vec3 v0, vec3 v1, vec3 v2)
+{
+    vec3 minv = min(min(v0, v1), v2);
+    vec3 maxv = max(max(v0, v1), v2);
+    return any(lessThan(maxv, vec3(-1, -1, -1))) ||
+           any(greaterThan(minv, vec3(1, 1, 1)));
+}
+
 #ifdef ENABLE_BACK_FACE_CULLING
 bool back_face_culling(vec3 v0, vec3 v1, vec3 v2)
 {
@@ -122,16 +130,31 @@ bool back_face_culling(vec3 v0, vec3 v1, vec3 v2)
 }
 #endif
 
+bool has_nan_or_inf(vec3 v)
+{
+    return any(isnan(v)) || any(isinf(v));
+}
+
 void main(void)
 {
     vec3 v1 = gl_in[0].gl_Position.xyz / gl_in[0].gl_Position.w;
+    if (has_nan_or_inf(v1)) return;
     vec3 v2 = gl_in[1].gl_Position.xyz / gl_in[1].gl_Position.w;
+    if (has_nan_or_inf(v2)) return;
     vec3 v3 = gl_in[2].gl_Position.xyz / gl_in[2].gl_Position.w;
+    if (has_nan_or_inf(v3)) return;
 
 #ifdef ENABLE_BACK_FACE_CULLING
     if (back_face_culling(v1, v2, v3))
         return;
 #endif
+
+    // fast bounding box based culling for [-1, 1] unit cube
+    // this should filter out most primitives
+    if (bounding_box_culling(v1, v2, v3))
+        return;
+
+    // accurate clipping with all clip planes
 
     int num_vert = 3;
     vec3 vert[MAX_VERTEX];

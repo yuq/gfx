@@ -169,21 +169,30 @@ void Render(void)
 	assert(!clock_gettime(CLOCK_MONOTONIC_RAW, &tv1));
 
 	GLfloat vertex[] = {
+		// back face culled
 		-1, -1, 0.5,
 		-1, 1, 0.5,
 		1, 1, 0.5,
 
+		// back face culled
 		-1, -1, -0.8,
 		-1, 1, -0.8,
 		1, 1, -0.8,
 
+		// visible
 		-1, -1, 0,
 		1, 1, 0,
 		-1, 1, 0,
 
+		// visible
 		-1, -1, -0.5,
 		1, 1, -0.5,
 		-1, 1, -0.5,
+
+		// bounding box culled
+		-1, -1, 8,
+		1, 1, 8,
+		-1, 1, 8,
 	};
 	GLint obj_index[] = {
 		0, 0, 0,

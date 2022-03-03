@@ -10,6 +10,11 @@ layout(std430, binding=0) buffer select_output
     uint select_data[];
 };
 
+// true: CCW & cull front, CW & cull back
+// false: CCW & cull back, CW & cull front
+#define CULLING_CONFIG false
+#define ENABLE_BACK_FACE_CULLING
+
 #define NUM_CLIP_PLANES 6
 #define MAX_VERTEX (3 + NUM_CLIP_PLANES)
 
@@ -79,7 +84,8 @@ bool clip_with_plane(inout vec3 vert[MAX_VERTEX], inout int num_vert, vec4 plane
 	    int prev = i == 0 ? num_vert - 1 : i - 1;
 	    if (dist[prev] > 0) {
 	        // +- case, replace - with inserted vertex
-		// assert(index <= i), array did not grow, but need to save vert[i] when index==i
+		// assert(index <= i), array is sure to not grow here
+		// but need to save vert[i] when index==i
 	        saved = vert[i];
 	        vert[index++] = get_intersection(vert[prev], vert[i], dist[prev], dist[i]);
 	    }
@@ -107,14 +113,31 @@ bool clip_with_plane(inout vec3 vert[MAX_VERTEX], inout int num_vert, vec4 plane
     return false;
 }
 
+#ifdef ENABLE_BACK_FACE_CULLING
+bool back_face_culling(vec3 v0, vec3 v1, vec3 v2)
+{
+    float det = (v0.x - v2.x) * (v1.y - v2.y) - (v0.y - v2.y) * (v1.x - v2.x);
+    // det < 0 then z points to camera
+    return det == 0 || (det < 0 ^^ CULLING_CONFIG);
+}
+#endif
+
 void main(void)
 {
-    vec3 vert[MAX_VERTEX];
-    vert[0] = gl_in[0].gl_Position.xyz / gl_in[0].gl_Position.w;
-    vert[1] = gl_in[1].gl_Position.xyz / gl_in[1].gl_Position.w;
-    vert[2] = gl_in[2].gl_Position.xyz / gl_in[2].gl_Position.w;
+    vec3 v1 = gl_in[0].gl_Position.xyz / gl_in[0].gl_Position.w;
+    vec3 v2 = gl_in[1].gl_Position.xyz / gl_in[1].gl_Position.w;
+    vec3 v3 = gl_in[2].gl_Position.xyz / gl_in[2].gl_Position.w;
+
+#ifdef ENABLE_BACK_FACE_CULLING
+    if (back_face_culling(v1, v2, v3))
+        return;
+#endif
 
     int num_vert = 3;
+    vec3 vert[MAX_VERTEX];
+    vert[0] = v1;
+    vert[1] = v2;
+    vert[2] = v3;
 
     for (int i = 0; i < NUM_CLIP_PLANES; i++) {
         if (clip_with_plane(vert, num_vert, clip_planes[i]))

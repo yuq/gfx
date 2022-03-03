@@ -169,13 +169,21 @@ void Render(void)
 	assert(!clock_gettime(CLOCK_MONOTONIC_RAW, &tv1));
 
 	GLfloat vertex[] = {
+		-1, -1, 0.5,
+		-1, 1, 0.5,
+		1, 1, 0.5,
+
+		-1, -1, -0.8,
+		-1, 1, -0.8,
+		1, 1, -0.8,
+
 		-1, -1, 0,
-		-1, 1, 0,
 		1, 1, 0,
+		-1, 1, 0,
 
 		-1, -1, -0.5,
-		-1, 1, -0.5,
 		1, 1, -0.5,
+		-1, 1, -0.5,
 	};
 	GLint obj_index[] = {
 		0, 0, 0,
@@ -218,7 +226,7 @@ void Render(void)
 
 	assert(glGetError() == GL_NO_ERROR);
 
-	glDrawArrays(GL_TRIANGLES, 0, 3 * 2);
+	glDrawArrays(GL_TRIANGLES, 0, sizeof(vertex) / 12);
 
 	assert(glGetError() == GL_NO_ERROR);
 

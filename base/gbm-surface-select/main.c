@@ -112,7 +112,7 @@ void Render(void)
 	glSelectBuffer(BUFF_SIZE, select_buffer);
 	glRenderMode(GL_SELECT);
 
-	//glDepthRange(0, 0.5);
+	//glDepthRange(1, 0);
 
 	//glEnable(GL_CULL_FACE);
 	//glCullFace(GL_BACK);

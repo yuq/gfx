@@ -3,11 +3,12 @@
 layout(triangles) in;
 layout(triangle_strip, max_vertices=3) out;
 
-in int objIndex[];
+#define MAX_SELECT_RESULT 12
 
-layout(std430, binding=0) buffer select_output
+layout(std430, binding=0) buffer select_data
 {
-    uint select_data[];
+    uint select_result[MAX_SELECT_RESULT];
+    uint select_result_index[];
 };
 
 // true: CCW & cull front, CW & cull back
@@ -18,7 +19,13 @@ layout(std430, binding=0) buffer select_output
 #define NUM_CLIP_PLANES 6
 #define MAX_VERTEX (3 + NUM_CLIP_PLANES)
 
-layout(location=0) uniform vec4 clip_planes[NUM_CLIP_PLANES];
+layout(std140, binding=0) uniform settings {
+    float depth_scale;
+    float depth_transport;
+    float _pad0;
+    float _pad1;
+    vec4 clip_planes[NUM_CLIP_PLANES];
+};
 
 vec3 get_intersection(vec3 v1, vec3 v2, float d1, float d2)
 {
@@ -167,18 +174,22 @@ void main(void)
 	    return;
     }
 
-    float dmin = 1, dmax = -1;
+    float dmin = 1, dmax = 0;
     for (int i = 0; i < num_vert; i++) {
-        dmin = min(dmin, vert[i].z);
-        dmax = max(dmax, vert[i].z);
+        // map [-1, 1] to [near, far] set by glDepthRange(near, far)
+        float depth = depth_scale * vert[i].z + depth_transport;
+
+        dmin = min(dmin, depth);
+        dmax = max(dmax, depth);
     }
 
-    uint idmin = 0x80000000 + int(dmin * 2147483648.0);
-    uint idmax = 0x80000000 + int(dmax * 2147483648.0);
+    // map [0, 1] to [0, 0xffffffff]
+    uint idmin = uint(4294967295.0 * dmin);
+    uint idmax = uint(4294967295.0 * dmax);
 
-    int i = objIndex[0] * 3;
+    uint i = select_result_index[gl_PrimitiveIDIn];
     // visible
-    atomicExchange(select_data[i], 1);
-    atomicMin(select_data[i + 1], idmin);
-    atomicMax(select_data[i + 2], idmax);
+    atomicExchange(select_result[i], 1);
+    atomicMin(select_result[i + 1], idmin);
+    atomicMax(select_result[i + 2], idmax);
 }

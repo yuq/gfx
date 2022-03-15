@@ -193,20 +193,30 @@ void Render(void)
 		-1, -1, 8,
 		1, 1, 8,
 		-1, 1, 8,
-	};
-	GLint obj_index[] = {
-		0, 0, 0,
+
+		// visible
+		-1, -1, 0.5,
+		1, 1, 0.5,
+		-1, 1, 0.5,
+
+		// visible
+		-1, -1, -1,
+		1, 1, -1,
+		-1, 1, -1,
 	};
 
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, 0, 0, vertex);
 
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 1, GL_INT, 0, 0, obj_index);
-
 	assert(glGetError() == GL_NO_ERROR);
 
+	float depth_near = 0;
+	float depth_far = 1;
+	float depth_scale = (depth_far - depth_near) / 2;
+	float depth_transport = (depth_far + depth_near) / 2;
+
 	GLfloat planes[] = {
+		depth_scale, depth_transport, 0, 0,
 		1, 0, 0, 1,
 		-1, 0, 0, 1,
 		0, 1, 0, 1,
@@ -226,6 +236,11 @@ void Render(void)
 		0, 0xffffffff, 0,
 		0, 0xffffffff, 0,
 		0, 0xffffffff, 0,
+		0, 0xffffffff, 0,
+		0, 0, 0, 0,
+		0, 3, 3, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
 	};
 	GLuint ssbo;
 	glGenBuffers(1, &ssbo);
@@ -247,7 +262,9 @@ void Render(void)
 
 	assert(glGetError() == GL_NO_ERROR);
 
-	printf("result: %x %x %x\n", result[0], result[1], result[2]);
+	printf("result0: %x %x %x\n", result[0], result[1], result[2]);
+	printf("result1: %x %x %x\n", result[3], result[4], result[5]);
+	printf("result2: %x %x %x\n", result[6], result[7], result[8]);
 
 	assert(!clock_gettime(CLOCK_MONOTONIC_RAW, &tv2));
 	double start = tv1.tv_sec;

@@ -222,28 +222,6 @@ void Render(void)
 
 	assert(glGetError() == GL_NO_ERROR);
 
-	float depth_near = 0;
-	float depth_far = 1;
-	float depth_scale = (depth_far - depth_near) / 2;
-	float depth_transport = (depth_far + depth_near) / 2;
-
-	GLfloat planes[] = {
-		depth_scale, depth_transport, 0, 0,
-		1, 0, 0, 1,
-		-1, 0, 0, 1,
-		0, 1, 0, 1,
-		0, -1, 0, 1,
-		0, 0, 1, 1,
-		0, 0, -1, 1,
-	};
-	GLuint clip_planes;
-	glGenBuffers(1, &clip_planes);
-	glBindBuffer(GL_UNIFORM_BUFFER, clip_planes);
-	glBufferData(GL_UNIFORM_BUFFER, sizeof(planes), planes, GL_STATIC_DRAW);
-	glBindBufferBase(GL_UNIFORM_BUFFER, 0, clip_planes);
-
-	assert(glGetError() == GL_NO_ERROR);
-
 	unsigned data[] = {
 		0, 0xffffffff, 0,
 		0, 0xffffffff, 0,

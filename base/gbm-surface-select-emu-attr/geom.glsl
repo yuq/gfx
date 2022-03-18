@@ -18,14 +18,6 @@ in uint select_result_index[];
 #define NUM_CLIP_PLANES 6
 #define MAX_VERTEX (3 + NUM_CLIP_PLANES)
 
-layout(std140, binding=0) uniform settings {
-    float depth_scale;
-    float depth_transport;
-    float _pad0;
-    float _pad1;
-    vec4 clip_planes[NUM_CLIP_PLANES];
-};
-
 vec3 get_intersection(vec3 v1, vec3 v2, float d1, float d2)
 {
     float factor = d1 / (d1 - d2);
@@ -168,10 +160,22 @@ void main(void)
     vert[1] = v2;
     vert[2] = v3;
 
+    vec4 clip_planes[NUM_CLIP_PLANES];
+    clip_planes[0] = vec4(1, 0, 0, 1);
+    clip_planes[1] = vec4(-1, 0, 0, 1);
+    clip_planes[2] = vec4(0, 1, 0, 1);
+    clip_planes[3] = vec4(0, -1, 0, 1);
+    clip_planes[4] = vec4(0, 0, 1, 1);
+    clip_planes[5] = vec4(0, 0, -1, 1);
+    //clip_planes[6] = gl_ClipPlane[0];
+
     for (int i = 0; i < NUM_CLIP_PLANES; i++) {
         if (clip_with_plane(vert, num_vert, clip_planes[i]))
 	    return;
     }
+
+    float depth_scale = (gl_DepthRange.far - gl_DepthRange.near) / 2;
+    float depth_transport = (gl_DepthRange.far + gl_DepthRange.near) / 2;
 
     float dmin = 1, dmax = 0;
     for (int i = 0; i < num_vert; i++) {

@@ -18,19 +18,19 @@ in uint select_result_index[];
 #define NUM_CLIP_PLANES 6
 #define MAX_VERTEX (3 + NUM_CLIP_PLANES)
 
-vec3 get_intersection(vec3 v1, vec3 v2, float d1, float d2)
+vec4 get_intersection(vec4 v1, vec4 v2, float d1, float d2)
 {
     float factor = d1 / (d1 - d2);
-    return v1 + (v2 - v1) * factor;
+    return (1 - factor) * v1 + factor * v2;
 }
 
-bool clip_with_plane(inout vec3 vert[MAX_VERTEX], inout int num_vert, vec4 plane)
+bool clip_with_plane(inout vec4 vert[MAX_VERTEX], inout int num_vert, vec4 plane)
 {
     bool all_vertex_clipped = true;
 
     float dist[MAX_VERTEX];
     for (int i = 0; i < num_vert; i++) {
-        dist[i] = dot(vec4(vert[i], 1), plane);
+        dist[i] = dot(vert[i], plane);
 	if (dist[i] >= 0)
 	    all_vertex_clipped = false;
     }
@@ -57,7 +57,7 @@ bool clip_with_plane(inout vec3 vert[MAX_VERTEX], inout int num_vert, vec4 plane
 
     // when array grow or '-' has been replaced with inserted vertex, save the
     // original vert to be used by following calculation.
-    vec3 saved;
+    vec4 saved;
 
     int index = 0;
     for (int i = 0; i < num_vert; i++) {
@@ -66,7 +66,7 @@ bool clip_with_plane(inout vec3 vert[MAX_VERTEX], inout int num_vert, vec4 plane
 
 	    if (index > i) {
 	        // array grew case, vert[i] is inserted vertex or prev +/0 vertex
-		vec3 tmp = vert[index];
+		vec4 tmp = vert[index];
 		// current vertex is in 'saved'
 		vert[index] = saved;
 		// save next vertex
@@ -91,7 +91,7 @@ bool clip_with_plane(inout vec3 vert[MAX_VERTEX], inout int num_vert, vec4 plane
 	    int next = i == num_vert - 1 ? 0 : i + 1;
 	    if (dist[next] > 0) {
 	        // -+ case, may grow array
-	        vec3 v;
+	        vec4 v;
 		if (index > i) {
 		    // +-+ case, grow array, current vertex in 'saved'
 		    v = saved;
@@ -111,51 +111,56 @@ bool clip_with_plane(inout vec3 vert[MAX_VERTEX], inout int num_vert, vec4 plane
     return false;
 }
 
-bool bounding_box_culling(vec3 v0, vec3 v1, vec3 v2)
+bool fast_frustum_culling(vec4 v0, vec4 v1, vec4 v2)
 {
-    vec3 minv = min(min(v0, v1), v2);
-    vec3 maxv = max(max(v0, v1), v2);
-    return any(lessThan(maxv, vec3(-1, -1, -1))) ||
-           any(greaterThan(minv, vec3(1, 1, 1)));
+    return (v0.x + v0.w < 0 && v1.x + v1.w < 0 && v2.x + v2.w < 0) ||
+           (v0.x - v0.w > 0 && v1.x - v1.w > 0 && v2.x - v2.w > 0) ||
+	   (v0.y + v0.w < 0 && v1.y + v1.w < 0 && v2.y + v2.w < 0) ||
+           (v0.y - v0.w > 0 && v1.y - v1.w > 0 && v2.y - v2.w > 0) ||
+	   (v0.z + v0.w < 0 && v1.z + v1.w < 0 && v2.z + v2.w < 0) ||
+           (v0.z - v0.w > 0 && v1.z - v1.w > 0 && v2.z - v2.w > 0);
 }
 
 #ifdef ENABLE_BACK_FACE_CULLING
-bool back_face_culling(vec3 v0, vec3 v1, vec3 v2)
+bool back_face_culling(vec4 v0, vec4 v1, vec4 v2)
 {
     float det = (v0.x - v2.x) * (v1.y - v2.y) - (v0.y - v2.y) * (v1.x - v2.x);
+
+    // invert det once any vertex w < 0
+    if (v0.w < 0 ^^ v1.w < 0 ^^ v2.w < 0)
+        det = -det;
+
     // det < 0 then z points to camera
     return det == 0 || (det < 0 ^^ CULLING_CONFIG);
 }
 #endif
 
-bool has_nan_or_inf(vec3 v)
+bool has_nan_or_inf(vec4 v)
 {
     return any(isnan(v)) || any(isinf(v));
 }
 
 void main(void)
 {
-    vec3 v1 = gl_in[0].gl_Position.xyz / gl_in[0].gl_Position.w;
-    if (has_nan_or_inf(v1)) return;
-    vec3 v2 = gl_in[1].gl_Position.xyz / gl_in[1].gl_Position.w;
-    if (has_nan_or_inf(v2)) return;
-    vec3 v3 = gl_in[2].gl_Position.xyz / gl_in[2].gl_Position.w;
-    if (has_nan_or_inf(v3)) return;
+    vec4 v1 = gl_in[0].gl_Position;
+    vec4 v2 = gl_in[1].gl_Position;
+    vec4 v3 = gl_in[2].gl_Position;
+    if (has_nan_or_inf(v1) || has_nan_or_inf(v2) || has_nan_or_inf(v3))
+        return;
 
 #ifdef ENABLE_BACK_FACE_CULLING
     if (back_face_culling(v1, v2, v3))
         return;
 #endif
 
-    // fast bounding box based culling for [-1, 1] unit cube
-    // this should filter out most primitives
-    if (bounding_box_culling(v1, v2, v3))
+    // fast frustum culling, this should filter out most primitives
+    if (fast_frustum_culling(v1, v2, v3))
         return;
 
     // accurate clipping with all clip planes
 
     int num_vert = 3;
-    vec3 vert[MAX_VERTEX];
+    vec4 vert[MAX_VERTEX];
     vert[0] = v1;
     vert[1] = v2;
     vert[2] = v3;
@@ -179,8 +184,10 @@ void main(void)
 
     float dmin = 1, dmax = 0;
     for (int i = 0; i < num_vert; i++) {
+        // do perspective division and make sure in [-1, 1] range
+        float depth = clamp(vert[i].z / vert[i].w, -1, 1);
         // map [-1, 1] to [near, far] set by glDepthRange(near, far)
-        float depth = depth_scale * vert[i].z + depth_transport;
+        depth = depth_scale * depth + depth_transport;
 
         dmin = min(dmin, depth);
         dmax = max(dmax, depth);

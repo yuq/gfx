@@ -176,8 +176,10 @@ void main(void)
 
     float dmin = 1, dmax = 0;
     for (int i = 0; i < num_vert; i++) {
-        // do perspective division and make sure in [-1, 1] range
-        float depth = clamp(vert[i].z / vert[i].w, -1, 1);
+        // do perspective division, if w==0, xyz must be 0 too (otherwise can't pass
+	// the clip test), 0/0=NaN, but we want it to be the nearest point
+        float depth =  vert[i].w == 0 ? -1 : vert[i].z / vert[i].w;
+
         // map [-1, 1] to [near, far] set by glDepthRange(near, far)
         depth = depth_scale * depth + depth_transport;
 

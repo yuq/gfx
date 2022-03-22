@@ -26,17 +26,9 @@ vec4 get_intersection(vec4 v1, vec4 v2, float d1, float d2)
 
 bool clip_with_plane(inout vec4 vert[MAX_VERTEX], inout int num_vert, vec4 plane)
 {
-    bool all_vertex_clipped = true;
-
     float dist[MAX_VERTEX];
-    for (int i = 0; i < num_vert; i++) {
+    for (int i = 0; i < num_vert; i++)
         dist[i] = dot(vert[i], plane);
-	if (dist[i] >= 0)
-	    all_vertex_clipped = false;
-    }
-
-    if (all_vertex_clipped)
-        return true;
 
     /* Use +/0/- to denote the dist[i] sign, which means:
      * +: inside plane
@@ -108,7 +100,7 @@ bool clip_with_plane(inout vec4 vert[MAX_VERTEX], inout int num_vert, vec4 plane
 	}
     }
     num_vert = index;
-    return false;
+    return num_vert == 0;
 }
 
 bool fast_frustum_culling(vec4 v0, vec4 v1, vec4 v2)

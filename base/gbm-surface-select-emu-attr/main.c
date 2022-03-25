@@ -21,6 +21,13 @@ struct gbm_surface *gs;
 #define TARGET_W 512
 #define TARGET_H 512
 
+void gluPickMatrix(
+	GLdouble x,
+ 	GLdouble y,
+ 	GLdouble delX,
+ 	GLdouble delY,
+ 	GLint * viewport);
+
 EGLConfig get_config(void)
 {
 	EGLint egl_config_attribs[] = {
@@ -168,6 +175,14 @@ void Render(void)
 	struct timespec tv1, tv2;
 	assert(!clock_gettime(CLOCK_MONOTONIC_RAW, &tv1));
 
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	int viewport[] = {0, 0, TARGET_W, TARGET_H};
+	gluPickMatrix(100, 100, 20, 20, viewport);
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+
 	GLfloat vertex[] = {
 		// back face culled
 		-1, -1, 0.5,
@@ -271,6 +286,6 @@ int main(int argc, char **argv)
 	RenderTargetInit(name);
 	InitGLES();
 	Render();
-	Render();
+	//Render();
 	return 0;
 }

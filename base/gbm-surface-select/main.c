@@ -114,9 +114,9 @@ void Render(void)
 
 	//glDepthRange(1, 0);
 
-	//glEnable(GL_CULL_FACE);
-	//glCullFace(GL_BACK);
-	//glFrontFace(GL_CCW);
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glFrontFace(GL_CCW);
 
 	assert(glGetError() == GL_NO_ERROR);
 
@@ -135,41 +135,50 @@ void Render(void)
 	assert(glGetError() == GL_NO_ERROR);
 
 	glPushName(1);
-	glPushName(2);
-	glBegin(GL_QUADS);
-	glVertex3f(-1, -1, 0);
-	glVertex3f(-1, 1, 0);
-	glVertex3f(1, 1, 0);
-	glVertex3f(1, -1, 0);
-
-	glVertex3f(-1, -1, -0.5);
-	glVertex3f(-1, 1, -0.5);
-	glVertex3f(1, 1, -0.5);
-	glVertex3f(1, -1, -0.5);
-	glEnd();
-
-	glPopName();
-	glPopName();
-	glPushName(3);
-	glBegin(GL_QUADS);
-	glVertex3f(-1, -1, 1);
-	glVertex3f(-1, 1, 1);
-	glVertex3f(1, 1, 1);
-	glVertex3f(1, -1, 1);
-
+	glBegin(GL_TRIANGLES);
+	// back face culled
 	glVertex3f(-1, -1, 0.5);
 	glVertex3f(-1, 1, 0.5);
 	glVertex3f(1, 1, 0.5);
-	glVertex3f(1, -1, 0.5);
+
+	// back face culled
+	glVertex3f(-1, -1, -0.8);
+	glVertex3f(-1, 1, -0.8);
+	glVertex3f(1, 1, -0.8);
 	glEnd();
 
 	glPopName();
-	glPushName(5);
-	glBegin(GL_QUADS);
+	glPushName(2);
+	glBegin(GL_TRIANGLES);
+	// visible
+	glVertex3f(-1, -1, 0);
+	glVertex3f(1, 1, 0);
+	glVertex3f(-1, 1, 0);
+
+	// visible
+	glVertex3f(-1, -1, -0.5);
+	glVertex3f(1, 1, -0.5);
+	glVertex3f(-1, 1, -0.5);
+
+	// bounding box culled
+	glVertex3f(-1, -1, 8);
+	glVertex3f(1, 1, 8);
+	glVertex3f(-1, 1, 8);
+	glEnd();
+
+	glPopName();
+	glPushName(3);
+	glPushName(4);
+	glBegin(GL_TRIANGLES);
+        // visible
+	glVertex3f(-1, -1, 0.5);
+	glVertex3f(1, 1, 0.5);
+	glVertex3f(-1, 1, 0.5);
+
+	// visible
 	glVertex3f(-1, -1, -1);
-	glVertex3f(-1, 1, -1);
 	glVertex3f(1, 1, -1);
-	glVertex3f(1, -1, -1);
+	glVertex3f(-1, 1, -1);
 	glEnd();
 
 	assert(glGetError() == GL_NO_ERROR);
@@ -219,6 +228,6 @@ int main(int argc, char **argv)
 
 	RenderTargetInit(name);
 	Render();
-	Render();
+	//Render();
 	return 0;
 }

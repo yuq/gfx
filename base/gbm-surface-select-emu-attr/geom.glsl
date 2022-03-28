@@ -116,7 +116,9 @@ bool fast_frustum_culling(vec4 v0, vec4 v1, vec4 v2)
 #ifdef ENABLE_BACK_FACE_CULLING
 bool back_face_culling(vec4 v0, vec4 v1, vec4 v2)
 {
-    float det = (v0.x - v2.x) * (v1.y - v2.y) - (v0.y - v2.y) * (v1.x - v2.x);
+    float det = v0.x * (v1.y * v2.w - v2.y * v1.w) +
+                v1.x * (v2.y * v0.w - v0.y * v2.w) +
+                v2.x * (v0.y * v1.w - v1.y * v0.w);
 
     // invert det once any vertex w < 0
     if (v0.w < 0 ^^ v1.w < 0 ^^ v2.w < 0)

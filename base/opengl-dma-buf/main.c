@@ -71,6 +71,8 @@ void RenderAndCheck(struct gpu_context *gpu, float r, float g, float b, float a)
 	glClearColor(r, g, b, a);
         glClear(GL_COLOR_BUFFER_BIT);
 
+	glFinish();
+
 	assert(eglMakeCurrent(gpu[1].dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, gpu[1].ctx) == EGL_TRUE);
 
 	// check on GPU1
@@ -117,11 +119,18 @@ int main(int argc, char **argv)
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TARGET_SIZE, TARGET_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texid, 0);
 
-	CheckFrameBufferStatus();	
+	CheckFrameBufferStatus();
 
 	EGLImage image = eglCreateImage(gpu[0].dpy, gpu[0].ctx, EGL_GL_TEXTURE_2D,
 					(EGLClientBuffer)texid, NULL);
 	assert(image != EGL_NO_IMAGE);
+
+	int fourcc;
+	int num_planes;
+	uint64_t modifiers;
+	EGLBoolean ret = eglExportDMABUFImageQueryMESA(gpu[0].dpy, image, &fourcc, &num_planes, &modifiers);
+	assert(ret == EGL_TRUE);
+	assert(num_planes == 1);
 
 	int prime_fd = -1;
 	int stride;
@@ -130,14 +139,17 @@ int main(int argc, char **argv)
 
 	RenderTargetInit(f2, gpu + 1);
 	assert(epoxy_has_egl_extension(gpu[1].dpy, "EGL_EXT_image_dma_buf_import"));
+	assert(epoxy_has_egl_extension(gpu[1].dpy, "EGL_EXT_image_dma_buf_import_modifiers"));
 
 	EGLint attrib_list[] = {
 		EGL_WIDTH, TARGET_SIZE,
 		EGL_HEIGHT, TARGET_SIZE,
-		EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_ABGR8888,
+		EGL_LINUX_DRM_FOURCC_EXT, fourcc,
 		EGL_DMA_BUF_PLANE0_FD_EXT, prime_fd,
 		EGL_DMA_BUF_PLANE0_OFFSET_EXT, offset,
 		EGL_DMA_BUF_PLANE0_PITCH_EXT, stride,
+		EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT, modifiers,
+		EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, modifiers >> 32,
 		EGL_NONE
 	};
 	image = eglCreateImageKHR(
@@ -153,6 +165,8 @@ int main(int argc, char **argv)
 
 	RenderAndCheck(gpu, 1, 0, 1, 0);
 	RenderAndCheck(gpu, 0, 1, 1, 0);
-	
+
+	assert(glGetError() == GL_NO_ERROR);
+
 	return 0;
 }

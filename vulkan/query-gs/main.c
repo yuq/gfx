@@ -216,17 +216,11 @@ int main(void)
 
 	VkQueryPool queryPool;
 	{
-		VkQueryPoolCreateInfo info2 = {
-			.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
-			.queryType = VK_QUERY_TYPE_PRIMITIVES_GENERATED_EXT,
-			.queryCount = 4,
-		};
 		VkQueryPoolCreateInfo info = {
 			.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
 			.queryType = VK_QUERY_TYPE_PIPELINE_STATISTICS,
 			.queryCount = 1,
 			.pipelineStatistics = VK_QUERY_PIPELINE_STATISTIC_GEOMETRY_SHADER_PRIMITIVES_BIT,
-			.pNext = &info2,
 		};
 		assert(vkCreateQueryPool(device, &info, NULL, &queryPool) == VK_SUCCESS);
 	}
@@ -559,7 +553,9 @@ int main(void)
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &buffer, &offset);
 	}
 
-	vkCmdResetQueryPool(commandBuffer, queryPool, 0, 5);
+	vkCmdResetQueryPool(commandBuffer, queryPool, 0, 1);
+	vkCmdResetQueryPool(commandBuffer, queryPool2, 0, 4);
+
 	vkCmdBeginQuery(commandBuffer, queryPool, 0, 0);
 
 	cmdBeginQueryIndexedEXT = vkGetDeviceProcAddr(device, "vkCmdBeginQueryIndexedEXT");

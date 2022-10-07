@@ -231,6 +231,16 @@ int main(void)
 		assert(vkCreateQueryPool(device, &info, NULL, &queryPool) == VK_SUCCESS);
 	}
 
+	VkQueryPool queryPool2;
+	{
+		VkQueryPoolCreateInfo info = {
+			.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+			.queryType = VK_QUERY_TYPE_PRIMITIVES_GENERATED_EXT,
+			.queryCount = 4,
+		};
+		assert(vkCreateQueryPool(device, &info, NULL, &queryPool2) == VK_SUCCESS);
+	}
+
 	VkQueue queue;
 	vkGetDeviceQueue(device, 0, 0, &queue);
 
@@ -554,7 +564,7 @@ int main(void)
 
 	cmdBeginQueryIndexedEXT = vkGetDeviceProcAddr(device, "vkCmdBeginQueryIndexedEXT");
 	for (int i = 0; i < 4; i++)
-		cmdBeginQueryIndexedEXT(commandBuffer, queryPool, 1 + i, 0, i);
+		cmdBeginQueryIndexedEXT(commandBuffer, queryPool2, i, 0, i);
 
 	vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
@@ -562,7 +572,7 @@ int main(void)
 
 	cmdEndQueryIndexedEXT = vkGetDeviceProcAddr(device, "vkCmdEndQueryIndexedEXT");
 	for (int i = 0; i < 4; i++)
-		cmdEndQueryIndexedEXT(commandBuffer, queryPool, 1 + i, i);
+		cmdEndQueryIndexedEXT(commandBuffer, queryPool2, i, i);
 
 	vkCmdEndRenderPass(commandBuffer);
 
@@ -598,11 +608,15 @@ int main(void)
 	}
 
 	{
-		uint32_t data[5] = {};
-		assert(vkGetQueryPoolResults(device, queryPool, 0, 5, sizeof(data),
-					     data, sizeof(data[0]), 0) == VK_SUCCESS);
-		printf("state=%u stream=%u|%u|%u|%u\n",
-		       data[0], data[1], data[2], data[3], data[4]);		
+		uint32_t data;
+		assert(vkGetQueryPoolResults(device, queryPool, 0, 1, sizeof(data),
+					     &data, sizeof(data), 0) == VK_SUCCESS);
+		printf("state=%u\n", data);
+
+		uint32_t data2[4] = {};
+		assert(vkGetQueryPoolResults(device, queryPool2, 0, 4, sizeof(data2),
+					     data2, sizeof(data2[0]), 0) == VK_SUCCESS);
+		printf("stream=%u|%u|%u|%u\n", data2[0], data2[1], data2[2], data2[3]);		
 	}
 
 	vkDestroyPipeline(device, pipeline, NULL);

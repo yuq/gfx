@@ -265,6 +265,11 @@ void Render(void)
 	for (int i = 0; i < 4; i++)
 		glBeginQueryIndexed(GL_PRIMITIVES_GENERATED, i, query[i]);
 
+	GLuint pipe_state_query[2];
+	glGenQueries(4, pipe_state_query);
+	glBeginQuery(GL_GEOMETRY_SHADER_INVOCATIONS, pipe_state_query[0]);
+	glBeginQuery(GL_GEOMETRY_SHADER_PRIMITIVES_EMITTED_ARB, pipe_state_query[1]);
+
 	glClear(GL_COLOR_BUFFER_BIT);
 	assert(glGetError() == GL_NO_ERROR);
 
@@ -275,6 +280,9 @@ void Render(void)
 	for (int i = 0; i < 4; i++)
 		glEndQueryIndexed(GL_PRIMITIVES_GENERATED, i);
 
+	glEndQuery(GL_GEOMETRY_SHADER_INVOCATIONS);
+	glEndQuery(GL_GEOMETRY_SHADER_PRIMITIVES_EMITTED_ARB);
+
 	assert(glGetError() == GL_NO_ERROR);
 
 	eglSwapBuffers(display, surface);
@@ -283,8 +291,13 @@ void Render(void)
 	for (int i = 0; i < 4; i++)
 		glGetQueryObjectuiv(query[i], GL_QUERY_RESULT, primitives + i);
 
-	printf("query result = %u|%u|%u|%u\n",
-	       primitives[0], primitives[1], primitives[2], primitives[3]);
+	GLuint pipe_results[2];
+	for (int i = 0; i < 2; i++)
+		glGetQueryObjectuiv(pipe_state_query[i], GL_QUERY_RESULT, pipe_results + i);
+
+	printf("query result = %u|%u|%u|%u pipe = %u|%u\n",
+	       primitives[0], primitives[1], primitives[2], primitives[3],
+	       pipe_results[0], pipe_results[1]);
 
 #if 1
 	GLubyte result[TARGET_W * TARGET_H * 4] = {0};

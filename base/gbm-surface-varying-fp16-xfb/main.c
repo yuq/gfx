@@ -306,15 +306,25 @@ void Render(void)
 	glGetQueryObjectuiv(query, GL_QUERY_RESULT, &primitives);
 	printf("query result = %d\n", primitives);
 
-	float *feedback = glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0, tbo_size,
-					   GL_MAP_READ_BIT);
+        void *data = glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0, tbo_size,
+				      GL_MAP_READ_BIT);
+	float *df = data;
+	unsigned *du = data;
+
 	assert(glGetError() == GL_NO_ERROR);
-	for (int i = 0; i < 3; i++)
-		printf("feed %d: %f %f %f %f | %f %f %f %f\n", i,
-		       feedback[i * 8], feedback[i * 8 + 1],
-		       feedback[i * 8 + 2], feedback[i * 8 + 3],
-		       feedback[i * 8 + 4], feedback[i * 8 + 5],
-		       feedback[i * 8 + 6], feedback[i * 4 + 7]);
+	for (int i = 0; i < 3; i++) {
+		printf("feedf %d: %f %f %f %f | %f %f %f %f\n", i,
+		       df[i * 8], df[i * 8 + 1],
+		       df[i * 8 + 2], df[i * 8 + 3],
+		       df[i * 8 + 4], df[i * 8 + 5],
+		       df[i * 8 + 6], df[i * 4 + 7]);
+
+		printf("feedu %d: %08x %08x %08x %08x | %08x %08x %08x %08x\n", i,
+		       du[i * 8], du[i * 8 + 1],
+		       du[i * 8 + 2], du[i * 8 + 3],
+		       du[i * 8 + 4], du[i * 8 + 5],
+		       du[i * 8 + 6], du[i * 4 + 7]);
+	}
 
 #if 1
 	GLubyte result[TARGET_W * TARGET_H * 4] = {0};

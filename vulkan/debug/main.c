@@ -200,14 +200,15 @@ int main(void)
 	VkPhysicalDeviceMemoryProperties memoryProperties = {};
 	vkGetPhysicalDeviceMemoryProperties(phys, &memoryProperties);
 
-	uint32_t MemoryTypeIndex;
-	for (int i = 0; i < memoryProperties.memoryHeapCount; i++) {
+	int MemoryTypeIndex = -1;
+	for (int i = 0; i < memoryProperties.memoryTypeCount; i++) {
 		if (memoryProperties.memoryTypes[i].propertyFlags &
 		    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
 			MemoryTypeIndex = i;
 			break;
 		}
 	}
+	assert(MemoryTypeIndex >= 0);
 
 	VkDevice device;
 	{

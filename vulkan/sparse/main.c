@@ -158,23 +158,25 @@ int main(void)
 	VkPhysicalDeviceMemoryProperties memoryProperties = {};
 	vkGetPhysicalDeviceMemoryProperties(phys, &memoryProperties);
 
-	uint32_t hostVisibleMemIndex;
-	for (int i = 0; i < memoryProperties.memoryHeapCount; i++) {
+	int hostVisibleMemIndex = -1;
+	for (int i = 0; i < memoryProperties.memoryTypeCount; i++) {
 		if (memoryProperties.memoryTypes[i].propertyFlags &
 		    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
 			hostVisibleMemIndex = i;
 			break;
 		}
 	}
+	assert(hostVisibleMemIndex >= 0);
 
-	uint32_t localMemIndex;
-	for (int i = 0; i < memoryProperties.memoryHeapCount; i++) {
+	int localMemIndex = -1;
+	for (int i = 0; i < memoryProperties.memoryTypeCount; i++) {
 		if (memoryProperties.memoryTypes[i].propertyFlags &
 		    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
 			localMemIndex = i;
 			break;
 		}
 	}
+	assert(localMemIndex >= 0);
 
 	VkDevice device;
 	{

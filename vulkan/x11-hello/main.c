@@ -120,12 +120,12 @@ int main(void)
 	uint32_t MemoryTypeIndex;
 	{
 		int i;
-		for (i = 0; i < memoryProperties.memoryHeapCount; i++) {
+		for (i = 0; i < memoryProperties.memoryTypeCount; i++) {
 			if (memoryProperties.memoryTypes[i].propertyFlags &
 			    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
 				break;
 		}
-		assert(i < memoryProperties.memoryHeapCount);
+		assert(i < memoryProperties.memoryTypeCount);
 		MemoryTypeIndex = i;
 	}
 

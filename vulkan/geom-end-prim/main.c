@@ -124,8 +124,26 @@ int main(void)
 
 	VkPhysicalDevice phys;
 	{
-		uint32_t physCount = 1;
-		assert(vkEnumeratePhysicalDevices(inst, &physCount, &phys) == VK_SUCCESS);
+	        uint32_t physCount = 0;
+		assert(vkEnumeratePhysicalDevices(inst, &physCount, NULL) == VK_SUCCESS);
+
+		VkPhysicalDevice *devs = calloc(sizeof(*devs), physCount);
+		assert(vkEnumeratePhysicalDevices(inst, &physCount, devs) == VK_SUCCESS);
+
+		int i;
+		for (i = 0; i < physCount; i++) {
+			VkPhysicalDeviceProperties deviceProperties;
+			vkGetPhysicalDeviceProperties(devs[i], &deviceProperties);
+			VkPhysicalDeviceFeatures deviceFeatures;
+			vkGetPhysicalDeviceFeatures(devs[i], &deviceFeatures);
+
+			if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU ||
+			    deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+				break;
+		}
+		assert(i < physCount);
+		phys = devs[i];
+		free(devs);
 	}
 
 	VkPhysicalDeviceMemoryProperties memoryProperties = {};

@@ -207,7 +207,8 @@ int render_vulkan(int *stride)
 			.enabledExtensionCount = 4,
 			.ppEnabledExtensionNames = extensions,
 		};
-		assert(vkCreateDevice(phys, &info, NULL, &device) == VK_SUCCESS);
+		VkResult res = vkCreateDevice(phys, &info, NULL, &device);
+		assert(res == VK_SUCCESS);
 	}
 
 	VkQueue queue;

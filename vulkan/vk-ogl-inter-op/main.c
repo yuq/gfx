@@ -264,8 +264,13 @@ int render_vulkan(int *stride)
 
 	VkImage image;
 	{
+		VkExternalMemoryImageCreateInfo external = {
+			.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+			.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
+		};
 		VkImageCreateInfo info = {
 			.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+			.pNext = &external,
 			.imageType = VK_IMAGE_TYPE_2D,
 			.format = VK_FORMAT_B8G8R8A8_UNORM,
 			.extent = {VK_TARGET_W, VK_TARGET_H, 1},

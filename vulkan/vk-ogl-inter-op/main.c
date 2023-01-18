@@ -126,8 +126,14 @@ int render_vulkan(int *stride)
 {
 	VkInstance inst;
 	{
+		const char *extensions[] = {
+			"VK_KHR_external_memory_capabilities",
+			"VK_KHR_get_physical_device_properties2",
+		};
 		VkInstanceCreateInfo info = {
 			.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+			.enabledExtensionCount = 2,
+			.ppEnabledExtensionNames = extensions,
 		};
 		assert(vkCreateInstance(&info, NULL, &inst) == VK_SUCCESS);
 	}
@@ -189,13 +195,16 @@ int render_vulkan(int *stride)
 			.pQueuePriorities = &zero,
 		};
 		const char *extensions[] = {
+			"VK_KHR_external_memory",
+			"VK_KHR_dedicated_allocation",
 			"VK_KHR_external_memory_fd",
+			"VK_KHR_get_memory_requirements2",
 		};
 		VkDeviceCreateInfo info = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 			.queueCreateInfoCount = 1,
 			.pQueueCreateInfos = &queueInfo,
-			.enabledExtensionCount = 1,
+			.enabledExtensionCount = 4,
 			.ppEnabledExtensionNames = extensions,
 		};
 		assert(vkCreateDevice(phys, &info, NULL, &device) == VK_SUCCESS);

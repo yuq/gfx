@@ -278,7 +278,7 @@ int render_vulkan(int *stride)
 			.arrayLayers = 1,
 			.samples = VK_SAMPLE_COUNT_1_BIT,
 			.tiling = VK_IMAGE_TILING_LINEAR,
-			.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+			.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 		};
 		assert(vkCreateImage(device, &info, NULL, &image) == VK_SUCCESS);
@@ -542,6 +542,60 @@ int render_vulkan(int *stride)
 
 	vkCmdEndRenderPass(commandBuffer);
 
+	{
+		VkImageMemoryBarrier barrier = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+			.dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.image = image,
+			.subresourceRange = {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			},
+		};
+		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+				     VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, NULL, 0,
+				     NULL, 1, &barrier);
+	}
+
+	VkBuffer m;
+	{
+		VkBufferCreateInfo info = {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+			.size = VK_TARGET_W * VK_TARGET_H * 10,
+			.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		};
+		assert(vkCreateBuffer(device, &info, NULL, &m) == VK_SUCCESS);
+	}
+	VkDeviceMemory mMemory;
+	{
+		VkMemoryRequirements requirements;
+		vkGetBufferMemoryRequirements(device, m, &requirements);
+
+		VkMemoryAllocateInfo info = {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+			.allocationSize = requirements.size,
+			.memoryTypeIndex = HostVisMemoryTypeIndex,
+		};
+		assert(vkAllocateMemory(device, &info, NULL, &mMemory) == VK_SUCCESS);
+		assert(vkBindBufferMemory(device, m, mMemory, 0) == VK_SUCCESS);
+
+		VkBufferImageCopy r = {0};
+		r.imageExtent.width = VK_TARGET_W;
+		r.imageExtent.height = VK_TARGET_H;
+		r.imageExtent.depth = 1;
+		r.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		r.imageSubresource.layerCount = 1;
+		vkCmdCopyImageToBuffer(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m, 1, &r);
+	}
+
 	assert(vkEndCommandBuffer(commandBuffer) == VK_SUCCESS);
 
 	VkFence fence;
@@ -562,6 +616,15 @@ int render_vulkan(int *stride)
 	}
 
 	assert(vkWaitForFences(device, 1, &fence, 1, 1000000000ull) == VK_SUCCESS);
+
+	{
+		void *data;
+		assert(vkMapMemory(device, mMemory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS);
+
+		assert(!writeImage("vk_screenshot.png", VK_TARGET_W, VK_TARGET_H,
+				VK_TARGET_W * 4, data, "hello"));
+		vkUnmapMemory(device, mMemory);
+	}
 
 	{
 		VkImageSubresource info = {

@@ -20,7 +20,8 @@
 #define OGL_TARGET_W 512
 #define OGL_TARGET_H 512
 
-static int writeImage(char* filename, int width, int height, int stride, void *buffer, char* title)
+static int writeImage(char* filename, int width, int height, int stride,
+		      void *buffer, char* title)
 {
 	int code = 0;
 	FILE *fp = NULL;
@@ -621,8 +622,19 @@ int render_vulkan(int *stride)
 		void *data;
 		assert(vkMapMemory(device, mMemory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS);
 
+		/* swap R B channel as png only support rgba */
+		uint8_t *color = data;
+		for (int i = 0; i < VK_TARGET_W; i++) {
+			for (int j = 0; j < VK_TARGET_H; j++) {
+				uint8_t tmp = color[(i * VK_TARGET_W + j) * 4];
+				color[(i * VK_TARGET_W + j) * 4] =
+					color[(i * VK_TARGET_W + j) * 4 + 2];
+				color[(i * VK_TARGET_W + j) * 4 + 2] = tmp;
+			}
+		}
+
 		assert(!writeImage("vk_screenshot.png", VK_TARGET_W, VK_TARGET_H,
-				VK_TARGET_W * 4, data, "hello"));
+				   VK_TARGET_W * 4, data, "hello"));
 		vkUnmapMemory(device, mMemory);
 	}
 

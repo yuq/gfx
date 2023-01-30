@@ -469,7 +469,13 @@ int main(void)
 		void* data;
 		assert(vkMapMemory(device, imageMemory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS);
 
-		assert(!writeImage("screenshot.png", TARGET_W, TARGET_H, TARGET_W * 4,
+		VkImageSubresource info = {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+		};
+		VkSubresourceLayout layout;
+		vkGetImageSubresourceLayout(device, image, &info, &layout);
+
+		assert(!writeImage("screenshot.png", TARGET_W, TARGET_H, layout.rowPitch,
 				   data, "hello"));
 
 		vkUnmapMemory(device, imageMemory);

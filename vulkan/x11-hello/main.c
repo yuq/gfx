@@ -9,8 +9,13 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vk_sdk_platform.h>
 
-#define TARGET_W 256
-#define TARGET_H 256
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+
+#define USE_FULLSCREEN 0
+
+int TARGET_W = 256;
+int TARGET_H = 256;
 
 Display *x11_display;
 Window x11_window;
@@ -22,10 +27,27 @@ static void create_native_window(void)
 
 	int screen = DefaultScreen(display);
 	Window root = DefaultRootWindow(display);
-	Window window =  XCreateWindow(display, root, 0, 0, TARGET_W, TARGET_H, 0,
-				       DefaultDepth(display, screen), InputOutput,
-				       DefaultVisual(display, screen), 
-				       0, NULL);
+
+#if USE_FULLSCREEN
+	XWindowAttributes attr;
+	XGetWindowAttributes(display, root, &attr);
+	TARGET_W = attr.width;
+	TARGET_H = attr.height;
+#endif
+
+	Window window = XCreateWindow(display, root, 0, 0, TARGET_W, TARGET_H, 0,
+				      DefaultDepth(display, screen), InputOutput,
+				      DefaultVisual(display, screen), 
+				      0, NULL);
+
+#if USE_FULLSCREEN
+	Atom wm_state = XInternAtom(display, "_NET_WM_STATE", 1);
+	Atom wm_fullscreen = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", 1);
+
+	XChangeProperty(display, window, wm_state, XA_ATOM, 32,
+			PropModeReplace, (unsigned char *)&wm_fullscreen, 1);
+#endif
+
 	XMapWindow(display, window);
 	XFlush(display);
 

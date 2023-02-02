@@ -59,8 +59,17 @@ int main(void)
 
 	VkDevice device;
 	{
+		const float zero = 0.0f;
+		VkDeviceQueueCreateInfo queueInfo = {
+			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+			.queueFamilyIndex = 0,
+			.queueCount = 1,
+			.pQueuePriorities = &zero,
+		};
 		VkDeviceCreateInfo info = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+			.queueCreateInfoCount = 1,
+			.pQueueCreateInfos = &queueInfo,
 		};
 		assert(vkCreateDevice(phys, &info, NULL, &device) == VK_SUCCESS);
 	}

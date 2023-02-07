@@ -40,8 +40,13 @@ void print_mem_prop(VkMemoryPropertyFlagBits flags)
 			case VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD:
 				printf(" dev_uncached");
 				break;
+#if 0
 			case VK_MEMORY_PROPERTY_RDMA_CAPABLE_BIT_NV:
 				printf(" rdma");
+				break;
+#endif
+			default:
+				printf(" %x", bit);
 				break;
 			}
 		}

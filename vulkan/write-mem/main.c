@@ -10,6 +10,44 @@
 
 #define TARGET_SIZE 256
 
+void print_mem_prop(VkMemoryPropertyFlagBits flags)
+{
+	for (int i = 0; i < 32; i++) {
+		VkMemoryPropertyFlagBits bit = 1 << i;
+		if (flags & bit) {
+			switch (bit) {
+			case VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT:
+				printf(" dev_loc");
+				break;
+			case VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT:
+				printf(" host_vis");
+				break;
+			case VK_MEMORY_PROPERTY_HOST_COHERENT_BIT:
+				printf(" host_cohe");
+				break;
+			case VK_MEMORY_PROPERTY_HOST_CACHED_BIT:
+				printf(" host_cached");
+				break;
+			case VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT:
+				printf(" lazy");
+				break;
+			case VK_MEMORY_PROPERTY_PROTECTED_BIT:
+				printf(" protect");
+				break;
+			case VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD:
+				printf(" dev_cohe");
+				break;
+			case VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD:
+				printf(" dev_uncached");
+				break;
+			case VK_MEMORY_PROPERTY_RDMA_CAPABLE_BIT_NV:
+				printf(" rdma");
+				break;
+			}
+		}
+	}
+}
+
 int main(void)
 {
 	VkInstance inst;
@@ -47,15 +85,17 @@ int main(void)
 	VkPhysicalDeviceMemoryProperties memoryProperties = {};
 	vkGetPhysicalDeviceMemoryProperties(phys, &memoryProperties);
 
-	int MemoryTypeIndex = -1;
+#define MAX_MEM_TYPE 16
+
+	int memoryTypeIndex[MAX_MEM_TYPE] = {};
+	int numMemoryTypes = 0;
 	for (int i = 0; i < memoryProperties.memoryTypeCount; i++) {
 		if (memoryProperties.memoryTypes[i].propertyFlags &
 		    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
-			MemoryTypeIndex = i;
-			break;
+		        memoryTypeIndex[numMemoryTypes++] = i;
 		}
 	}
-	assert(MemoryTypeIndex >= 0);
+	assert(numMemoryTypes > 0 && numMemoryTypes <= MAX_MEM_TYPE);
 
 	VkDevice device;
 	{
@@ -74,35 +114,45 @@ int main(void)
 		assert(vkCreateDevice(phys, &info, NULL, &device) == VK_SUCCESS);
 	}
 
-	VkDeviceMemory memory;
-	{
-		VkMemoryAllocateInfo info = {
-			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-			.allocationSize = TARGET_SIZE * 4,
-			.memoryTypeIndex = MemoryTypeIndex,
-		};
-		assert(vkAllocateMemory(device, &info, NULL, &memory) == VK_SUCCESS);
+	printf("GPU memory write %d dword:\n", TARGET_SIZE);
+
+	for (int i = 0; i < numMemoryTypes; i++) {
+		VkDeviceMemory memory;
+		{
+			VkMemoryAllocateInfo info = {
+				.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+				.allocationSize = TARGET_SIZE * 4,
+				.memoryTypeIndex = memoryTypeIndex[i],
+			};
+			assert(vkAllocateMemory(device, &info, NULL, &memory) == VK_SUCCESS);
+		}
+
+		{
+			void* data;
+			assert(vkMapMemory(device, memory, 0, TARGET_SIZE * 4, 0, &data) == VK_SUCCESS);
+
+			struct timespec ts1, ts2;
+			assert(!clock_gettime(CLOCK_MONOTONIC, &ts1));
+
+			for (int i = 0; i < TARGET_SIZE; i++)
+				((uint32_t *)data)[i] = i;
+
+			assert(!clock_gettime(CLOCK_MONOTONIC, &ts2));
+
+			vkUnmapMemory(device, memory);
+
+			double a = ts2.tv_sec - ts1.tv_sec;
+			double b = ts2.tv_nsec - ts1.tv_nsec;
+			double c = a * 1000000000 + b;
+			printf("time: %f nsec, prop:", c);
+
+			VkMemoryType *type = memoryProperties.memoryTypes + memoryTypeIndex[i];
+			print_mem_prop(type->propertyFlags);
+			printf("\n");
+		}
 	}
 
-	{
-		void* data;
-		assert(vkMapMemory(device, memory, 0, TARGET_SIZE * 4, 0, &data) == VK_SUCCESS);
-
-		struct timespec ts1, ts2;
-		assert(!clock_gettime(CLOCK_MONOTONIC, &ts1));
-
-		for (int i = 0; i < TARGET_SIZE; i++)
-			((uint32_t *)data)[i] = i;
-
-		assert(!clock_gettime(CLOCK_MONOTONIC, &ts2));
-
-		vkUnmapMemory(device, memory);
-
-		double a = ts2.tv_sec - ts1.tv_sec;
-		double b = ts2.tv_nsec - ts1.tv_nsec;
-		double c = a * 1000000000 + b;
-		printf("GPU memory write %d dword cost %f nsec\n", TARGET_SIZE, c);
-	}
+	printf("\nGPU memory write %d dword:\n", TARGET_SIZE);
 
 	{
 		uint32_t data[TARGET_SIZE];
@@ -118,7 +168,7 @@ int main(void)
 		double a = ts2.tv_sec - ts1.tv_sec;
 		double b = ts2.tv_nsec - ts1.tv_nsec;
 		double c = a * 1000000000 + b;
-		printf("CPU memory write %d dword cost %f nsec\n", TARGET_SIZE, c);
+		printf("time: %f nsec\n", c);
 	}
 
 	return 0;

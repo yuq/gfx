@@ -157,7 +157,7 @@ int main(void)
 		}
 	}
 
-	printf("\nGPU memory write %d dword:\n", TARGET_SIZE);
+	printf("\nCPU memory write %d dword:\n", TARGET_SIZE);
 
 	{
 		uint32_t data[TARGET_SIZE];

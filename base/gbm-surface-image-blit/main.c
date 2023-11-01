@@ -165,15 +165,15 @@ void Render(void)
 
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, fbs[1]);
 
-	GLubyte result[TARGET_W * TARGET_H * 4] = {0};
-	glReadPixels(0, 0, TARGET_W, TARGET_H, GL_RGBA, GL_UNSIGNED_BYTE, result);
+	GLubyte result[32 * 32 * 4] = {0};
+	glReadPixels(17, 11, 32, 32, GL_RGBA, GL_UNSIGNED_BYTE, result);
 	assert(glGetError() == GL_NO_ERROR);
 
-	assert(!writeImage("screenshot.png", TARGET_W, TARGET_H, result, "hello"));
+	assert(!writeImage("screenshot.png", 32, 32, result, "hello"));
 
-	for (int i = 17; i < 17 + 32; i++) {
-		for (int j = 11; j < 11 + 32; j++) {
-			uint32_t color = *(uint32_t *)(result + (j * TARGET_W + i) * 4);
+	for (int i = 0; i < 32; i++) {
+		for (int j = 0; j < 32; j++) {
+			uint32_t color = *(uint32_t *)(result + (j * 32 + i) * 4);
 			if (color != 0xff00ff00)
 				printf("wrong color at %d %d %08x\n", i, j, color);
 		}

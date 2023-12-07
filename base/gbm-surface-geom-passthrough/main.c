@@ -166,14 +166,11 @@ void InitGLES(void)
 	GLuint shader[5];
 	assert((shader[num++] = LoadShader("vert.glsl", GL_VERTEX_SHADER)) != 0);
 	assert((shader[num++] = LoadShader("tcs.glsl", GL_TESS_CONTROL_SHADER)) != 0);
+	assert((shader[num++] = LoadShader("tes.glsl", GL_TESS_EVALUATION_SHADER)) != 0);
 	assert((shader[num++] = LoadShader("frag.glsl", GL_FRAGMENT_SHADER)) != 0);
 
-	if (use_passthough_geom_shader) {
-		assert((shader[num++] = LoadShader("tes.glsl", GL_TESS_EVALUATION_SHADER)) != 0);
+	if (use_passthough_geom_shader)
 		assert((shader[num++] = LoadShader("geom.glsl", GL_GEOMETRY_SHADER)) != 0);
-	} else {
-		assert((shader[num++] = LoadShader("tes2.glsl", GL_TESS_EVALUATION_SHADER)) != 0);
-	}
 
 	program = glCreateProgram();
 

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -252,6 +253,7 @@ void Render(void)
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+#if 0
 	float zero[65 * 32 * 5 * 4] = {0};
 	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, 65, 32, 5, 0, GL_RGBA, GL_FLOAT, zero);
 
@@ -269,20 +271,36 @@ void Render(void)
 	glTexImage3D(GL_TEXTURE_3D, 4, GL_RGBA32F, 4, 2, 1, 0, GL_RGBA, GL_FLOAT, zero);
 	glTexImage3D(GL_TEXTURE_3D, 5, GL_RGBA32F, 2, 1, 1, 0, GL_RGBA, GL_FLOAT, zero);
 	glTexImage3D(GL_TEXTURE_3D, 6, GL_RGBA32F, 1, 1, 1, 0, GL_RGBA, GL_FLOAT, zero);
+#else
+	glTexStorage3D(GL_TEXTURE_3D, 7, GL_RGBA32F, 65, 32, 5);
+
+	float data[32 * 16 * 2 * 4];
+	for (int i = 0; i < 32 * 16 * 2; i++) {
+	        data[i * 4] = 1;
+		data[i * 4 + 1] = 0;
+		data[i * 4 + 2] = 0;
+		data[i * 4 + 3] = 1;
+	}
+	glTexSubImage3D(GL_TEXTURE_3D, 1, 0, 0, 0, 32, 16, 2, GL_RGBA, GL_FLOAT, data);
+#endif
 
 	assert(glGetError() == GL_NO_ERROR);
+
+#if 0
+	float out_data[32 * 16 * 2 * 4] = {0};
+	glGetTexImage(GL_TEXTURE_3D, 1, GL_RGBA, GL_FLOAT, out_data);
+
+        if (memcmp(data, out_data, sizeof(data))) {
+		printf("texture miss match\n");
+		return;
+	}
+#endif
 
 	GLfloat vertex[] = {
 		-1, -1, 0,
 		-1, 1, 0,
+		1, -1, 0,
 		1, 1, 0,
-		1, -1, 0
-	};
-        GLfloat tex[] = {
-		1, 1,
-		1, 0,
-		0, 0,
-		0, 1,
 	};
 
 	GLint position = glGetAttribLocation(program, "positionIn");
@@ -292,19 +310,23 @@ void Render(void)
 	GLint sample = glGetUniformLocation(program, "tex");
 	glUniform1i(sample, 0);
 
-	glClear(GL_COLOR_BUFFER_BIT);
+	//glClear(GL_COLOR_BUFFER_BIT);
 
-	glDrawArrays(GL_TRIANGLES, 0, 3);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
 	assert(glGetError() == GL_NO_ERROR);
 
 	eglSwapBuffers(display, surface);
 
+#if 0
 	GLubyte result[TARGET_WIDTH * TARGET_HEIGHT * 4] = {0};
 	glReadPixels(0, 0, TARGET_WIDTH, TARGET_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, result);
 	assert(glGetError() == GL_NO_ERROR);
 
 	assert(!writeImage("screenshot.png", TARGET_WIDTH, TARGET_HEIGHT, result, "hello"));
+#else
+	glFinish();
+#endif
 }
 
 int main(void)

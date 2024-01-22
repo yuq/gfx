@@ -73,6 +73,72 @@ void CheckFrameBufferStatus(void)
   }
 }
 
+GLuint LoadShader(const char *name, GLenum type)
+{
+	FILE *f;
+	int size;
+	char *buff;
+	GLuint shader;
+	GLint compiled;
+	const GLchar *source[1];
+
+	assert((f = fopen(name, "r")) != NULL);
+
+	// get file size
+	fseek(f, 0, SEEK_END);
+	size = ftell(f);
+	fseek(f, 0, SEEK_SET);
+
+	assert((buff = malloc(size)) != NULL);
+	assert(fread(buff, 1, size, f) == size);
+	source[0] = buff;
+	fclose(f);
+	shader = glCreateShader(type);
+	glShaderSource(shader, 1, source, &size);
+	glCompileShader(shader);
+	free(buff);
+	glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
+	if (!compiled) {
+		GLint infoLen = 0;
+		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLen);
+		if (infoLen > 1) {
+			char *infoLog = malloc(infoLen);
+			glGetShaderInfoLog(shader, infoLen, NULL, infoLog);
+			fprintf(stderr, "Error compiling shader %s:\n%s\n", name, infoLog);
+			free(infoLog);
+		}
+		glDeleteShader(shader);
+		return 0;
+	}
+
+	return shader;
+}
+
+void InitGLES(void)
+{
+	GLint linked;
+        GLuint shader;
+	assert((shader = LoadShader("comp.glsl", GL_COMPUTE_SHADER)) != 0);
+	assert((program = glCreateProgram()) != 0);
+	glAttachShader(program, shader);
+	glLinkProgram(program);
+	glGetProgramiv(program, GL_LINK_STATUS, &linked);
+	if (!linked) {
+		GLint infoLen = 0;
+		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infoLen);
+		if (infoLen > 1) {
+			char *infoLog = malloc(infoLen);
+			glGetProgramInfoLog(program, infoLen, NULL, infoLog);
+			fprintf(stderr, "Error linking program:\n%s\n", infoLog);
+			free(infoLog);
+		}
+		glDeleteProgram(program);
+		exit(1);
+	}
+
+	glUseProgram(program);
+}
+
 void Render(void)
 {
 	GLuint fbid;
@@ -95,27 +161,30 @@ void Render(void)
 
 	assert(glGetError() == GL_NO_ERROR);
 
-	GLuint result[TARGET_WIDTH * TARGET_HEIGHT] = {0};
-	glGetTexImage(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, result);
-	assert(glGetError() == GL_NO_ERROR);
+	GLuint bufid;
+        glGenBuffers(1, &bufid);
+	glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, bufid);
 
-	GLuint data = result[0];
-	for (int i = 0; i < TARGET_HEIGHT; i++) {
-		for (int j = 0; j < TARGET_WIDTH; j++) {
-			GLuint r = result[i * TARGET_WIDTH + j];
-			if (r != data) {
-				printf("fail at %d/%d expect %x but get %x\n",
-				       j, i, data, r);
-				return;
-			}
-		}
-	}
-	printf("pass with result %x\n", data);
+	unsigned count = 0;
+	glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned), &count, GL_DYNAMIC_DRAW);
+
+	glActiveTexture(GL_TEXTURE0);
+	glUniform1i(glGetUniformLocation(program, "source"), 0);
+	glDispatchCompute(TARGET_WIDTH, TARGET_HEIGHT, 1);
+
+	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+	unsigned *diff = glMapBufferRange(GL_ATOMIC_COUNTER_BUFFER, 0,
+					  sizeof(unsigned), GL_MAP_READ_BIT);
+	printf("diff is %x\n", *diff);
+	glUnmapBuffer(GL_ATOMIC_COUNTER_BUFFER);
+	
 }
 
 int main(void)
 {
 	RenderTargetInit();
+	InitGLES();
 	Render();
 	return 0;
 }

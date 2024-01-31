@@ -267,7 +267,7 @@ void Render(void)
 	float red[] = {1, 0, 0, 1};
 	float green[] = {0, 1, 0, 1};
 
-	for (int i = 0; i < 100; i++) {
+	for (int i = 0; i < 64; i++) {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		glUniform1f(0, 0);

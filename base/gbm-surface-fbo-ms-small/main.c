@@ -313,6 +313,10 @@ void Render(void)
 			glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 			assert(glGetError() == GL_NO_ERROR);
 
+			glEnable(GL_STENCIL_TEST);
+			glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
+			glStencilFunc(GL_EQUAL, 0, 0xff);
+
 			glClear(GL_STENCIL_BUFFER_BIT);
 
 			glUniform1f(0, -0.5);
@@ -320,6 +324,8 @@ void Render(void)
 
 			glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 			assert(glGetError() == GL_NO_ERROR);
+
+			glDisable(GL_STENCIL_TEST);
 
 			glBindFramebuffer(GL_READ_FRAMEBUFFER, ms_fbid);
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ss_fbid);

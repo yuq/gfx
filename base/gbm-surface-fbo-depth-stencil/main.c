@@ -261,21 +261,18 @@ void Render(void)
 
 	glClearColor(0, 0, 0, 0);
 	glViewport(0, 0, TARGET_SIZE, TARGET_SIZE);
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS);
 	glEnable(GL_STENCIL_TEST);
 	glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
 	glStencilFunc(GL_EQUAL, 0, 0xff);
 
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClearStencil(1);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-	glClear(GL_STENCIL_BUFFER_BIT);
+	glFinish();
 
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-	assert(glGetError() == GL_NO_ERROR);
+	glClear(GL_DEPTH_BUFFER_BIT);
 
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+	glClearStencil(0);
 	glClear(GL_STENCIL_BUFFER_BIT);
 
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);

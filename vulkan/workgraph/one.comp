@@ -1,0 +1,40 @@
+#version 430
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "shaderEnqueueSpirvIntrinsics.glsl.h"
+
+struct PayloadDataIn {
+       int data;
+};
+
+struct PayloadDataOut {
+       int index;
+       int data;
+};
+
+DeclareShaderIndexAMDX(0);
+DeclareBuiltInShaderIndexAMDX(one);
+
+// Fixed expansion size.
+DeclareStaticNumWorkgroupsAMDX(1, 1, 1);
+
+DeclareInputPayloadAMD(PayloadDataIn, input_payload);
+DeclareOutputPayloadAMD("two", myInitFunc, myFinalizeFunc, PayloadDataOut, payloads, 2);
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+void main()
+{
+	myInitFunc(payloads, ScopeWorkgroup, 1, 2);
+
+	if (gl_LocalInvocationIndex == 0) {
+	   payloads[0].index = 0;
+	   payloads[0].data = input_payload.data;
+
+	   payloads[1].index = 1;
+	   payloads[1].data = input_payload.data + 1;
+	}
+
+	myFinalizeFunc(payloads);
+}

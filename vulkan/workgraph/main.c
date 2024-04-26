@@ -414,10 +414,19 @@ int main(void)
 				     1, &barrier, 0, NULL);
 	}
 
+	uint32_t nodeIndex;
+	{
+		VkPipelineShaderStageNodeCreateInfoAMDX info = {
+			.pName = "one",
+			.index = 0,
+		};
+		assert(_vkGetExecutionGraphPipelineNodeIndexAMDX(device, pipeline, &info, &nodeIndex) == VK_SUCCESS);
+	}
+
 	{
 		unsigned payload_data = 2;
 		VkDispatchGraphInfoAMDX payload = {
-			.nodeIndex = 0,
+			.nodeIndex = nodeIndex,
 			.payloadCount = 1,
 			.payloads.hostAddress = &payload_data,
 			.payloadStride = 4,

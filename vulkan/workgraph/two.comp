@@ -10,7 +10,6 @@ struct PayloadData {
 };
 
 DeclareShaderIndexAMDX(1);
-DeclareBuiltInShaderIndexAMDX(two);
 
 // Fixed expansion size.
 DeclareStaticNumWorkgroupsAMDX(1, 1, 1);

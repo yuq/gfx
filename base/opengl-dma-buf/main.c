@@ -14,6 +14,8 @@
 
 #define TARGET_SIZE 256
 
+#define MAX_PLANES 3
+
 struct gpu_context {
 	int fd;
 	struct gbm_device *gbm;
@@ -127,31 +129,71 @@ int main(int argc, char **argv)
 
 	int fourcc;
 	int num_planes;
-	uint64_t modifiers;
-	EGLBoolean ret = eglExportDMABUFImageQueryMESA(gpu[0].dpy, image, &fourcc, &num_planes, &modifiers);
+	uint64_t modifiers[MAX_PLANES] = {0};
+	EGLBoolean ret = eglExportDMABUFImageQueryMESA(gpu[0].dpy, image, &fourcc, &num_planes, modifiers);
 	assert(ret == EGL_TRUE);
-	assert(num_planes == 1);
+	assert(num_planes <= MAX_PLANES);
 
-	int prime_fd = -1;
-	int stride;
-	int offset;
-	assert(eglExportDMABUFImageMESA(gpu[0].dpy, image, &prime_fd, &stride, &offset));
+	int fds[MAX_PLANES] = {0};
+	int strides[MAX_PLANES] = {0};
+	int offsets[MAX_PLANES] = {0};
+	assert(eglExportDMABUFImageMESA(gpu[0].dpy, image, fds, strides, offsets));
 
 	RenderTargetInit(f2, gpu + 1);
 	assert(epoxy_has_egl_extension(gpu[1].dpy, "EGL_EXT_image_dma_buf_import"));
 	assert(epoxy_has_egl_extension(gpu[1].dpy, "EGL_EXT_image_dma_buf_import_modifiers"));
 
-	EGLint attrib_list[] = {
-		EGL_WIDTH, TARGET_SIZE,
-		EGL_HEIGHT, TARGET_SIZE,
-		EGL_LINUX_DRM_FOURCC_EXT, fourcc,
-		EGL_DMA_BUF_PLANE0_FD_EXT, prime_fd,
-		EGL_DMA_BUF_PLANE0_OFFSET_EXT, offset,
-		EGL_DMA_BUF_PLANE0_PITCH_EXT, stride,
-		EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT, modifiers,
-		EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, modifiers >> 32,
-		EGL_NONE
-	};
+	EGLint attrib_list[6 + MAX_PLANES * 10 + 1] = {0};
+	unsigned num = 0;
+
+	attrib_list[num++] = EGL_WIDTH;
+	attrib_list[num++] = TARGET_SIZE;
+
+	attrib_list[num++] = EGL_HEIGHT;
+	attrib_list[num++] = TARGET_SIZE;
+
+	attrib_list[num++] = EGL_LINUX_DRM_FOURCC_EXT;
+	attrib_list[num++] = fourcc;
+
+	attrib_list[num++] = EGL_DMA_BUF_PLANE0_FD_EXT;
+	attrib_list[num++] = fds[0];
+	attrib_list[num++] = EGL_DMA_BUF_PLANE0_OFFSET_EXT;
+	attrib_list[num++] = offsets[0];
+	attrib_list[num++] = EGL_DMA_BUF_PLANE0_PITCH_EXT;
+	attrib_list[num++] = strides[0];
+	attrib_list[num++] = EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT;
+	attrib_list[num++] = modifiers[0];
+	attrib_list[num++] = EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT;
+	attrib_list[num++] = modifiers[0] >> 32;
+
+	if (num_planes > 1) {
+		attrib_list[num++] = EGL_DMA_BUF_PLANE1_FD_EXT;
+		attrib_list[num++] = fds[1] >= 0 ? fds[1] : fds[0];
+		attrib_list[num++] = EGL_DMA_BUF_PLANE1_OFFSET_EXT;
+		attrib_list[num++] = offsets[1];
+		attrib_list[num++] = EGL_DMA_BUF_PLANE1_PITCH_EXT;
+		attrib_list[num++] = strides[1];
+		attrib_list[num++] = EGL_DMA_BUF_PLANE1_MODIFIER_LO_EXT;
+		attrib_list[num++] = modifiers[1];
+		attrib_list[num++] = EGL_DMA_BUF_PLANE1_MODIFIER_HI_EXT;
+		attrib_list[num++] = modifiers[1] >> 32;
+	}
+
+	if (num_planes > 2) {
+		attrib_list[num++] = EGL_DMA_BUF_PLANE2_FD_EXT;
+		attrib_list[num++] = fds[2] >= 0 ? fds[2] : fds[0];
+		attrib_list[num++] = EGL_DMA_BUF_PLANE2_OFFSET_EXT;
+		attrib_list[num++] = offsets[2];
+		attrib_list[num++] = EGL_DMA_BUF_PLANE2_PITCH_EXT;
+		attrib_list[num++] = strides[2];
+		attrib_list[num++] = EGL_DMA_BUF_PLANE2_MODIFIER_LO_EXT;
+		attrib_list[num++] = modifiers[2];
+		attrib_list[num++] = EGL_DMA_BUF_PLANE2_MODIFIER_HI_EXT;
+		attrib_list[num++] = modifiers[2] >> 32;
+	}
+
+	attrib_list[num++] = EGL_NONE;
+
 	image = eglCreateImageKHR(
 		gpu[1].dpy, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT,
 		NULL, attrib_list);

@@ -134,6 +134,8 @@ int main(int argc, char **argv)
 	assert(ret == EGL_TRUE);
 	assert(num_planes <= MAX_PLANES);
 
+	printf("modifier = %lx\n", modifiers[0]);
+
 	int fds[MAX_PLANES] = {0};
 	int strides[MAX_PLANES] = {0};
 	int offsets[MAX_PLANES] = {0};

@@ -15,6 +15,8 @@
 
 #include <vulkan/vulkan.h>
 
+//#define USE_OPTIMAL 1
+
 #define MAX_PLANES 3
 int img_fds[MAX_PLANES];
 int img_strides[MAX_PLANES];
@@ -27,6 +29,16 @@ int img_fourcc;
 #define VK_TARGET_H 512
 #define OGL_TARGET_W 256
 #define OGL_TARGET_H 256
+
+float attr_in[] = {
+	/* pos       tex */
+	-0.5, -0.5,  0, 0,
+	-0.5,  0.5,  0, 1,
+	 0.5,  0.5,  1, 1,
+	-0.5, -0.5,  0, 0,
+	 0.5, -0.5,  1, 0,
+	 0.5,  0.5,  1, 1,
+};
 
 static int writeImage(char* filename, int width, int height, int stride,
 		      void *buffer, char* title)
@@ -202,7 +214,7 @@ void render_vulkan(void)
 		vkGetPhysicalDeviceQueueFamilyProperties(phys, &count, properties);
 
 		for (int i = 0; i < count; i++) {
-			if (properties[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+			if (properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 				queueFamilyIndex = i;
 				printf("queue family index = %u\n", queueFamilyIndex);
 				break;
@@ -292,9 +304,9 @@ void render_vulkan(void)
 #ifndef USE_OPTIMAL 
 			.tiling = VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT,
 #endif
-			.usage = VK_IMAGE_USAGE_STORAGE_BIT,
+			.usage = VK_IMAGE_USAGE_SAMPLED_BIT,
 			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-			.initialLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 		};
 		assert(vkCreateImage(device, &info, NULL, &imageIn) == VK_SUCCESS);
 	}
@@ -310,7 +322,9 @@ void render_vulkan(void)
 			VkMemoryFdPropertiesKHR*                    pMemoryFdProperties);
 		GetMemoryFdPropertiesKHR = vkGetDeviceProcAddr(device, "vkGetMemoryFdPropertiesKHR");
 
-		VkMemoryFdPropertiesKHR fd_props;
+		VkMemoryFdPropertiesKHR fd_props = {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_FD_PROPERTIES_KHR,
+		};
 		assert(GetMemoryFdPropertiesKHR(device,
 						VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
 						img_fds[0], &fd_props) == VK_SUCCESS);
@@ -366,7 +380,7 @@ void render_vulkan(void)
 			.arrayLayers = 1,
 			.samples = VK_SAMPLE_COUNT_1_BIT,
 			.tiling = VK_IMAGE_TILING_LINEAR,
-			.usage = VK_IMAGE_USAGE_STORAGE_BIT,
+			.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 		};
 		assert(vkCreateImage(device, &info, NULL, &imageOut) == VK_SUCCESS);
@@ -402,29 +416,107 @@ void render_vulkan(void)
 		assert(vkCreateImageView(device, &info, NULL, &imageOutView) == VK_SUCCESS);
 	}
 
-	VkShaderModule cs = createShaderModule(device, "comp.spv");
+	VkRenderPass renderPass;
+	{
+		VkAttachmentDescription color = {
+			.format = VK_FORMAT_R8G8B8A8_UNORM,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+			//.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		};
+		VkAttachmentReference colorRef = {
+			.attachment = 0,
+			.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		};
+		VkSubpassDescription render = {
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &colorRef,
+		};
+		VkRenderPassCreateInfo info = {
+			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+			.attachmentCount = 1,
+			.pAttachments = &color,
+			.subpassCount = 1,
+			.pSubpasses = &render,
+		};
+		assert(vkCreateRenderPass(device, &info, NULL, &renderPass) == VK_SUCCESS);
+	}
+
+	VkFramebuffer framebuffer;
+	{
+		VkFramebufferCreateInfo info = {
+			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+			.renderPass = renderPass,
+			.attachmentCount = 1,
+			.pAttachments = &imageOutView,
+			.width = VK_TARGET_W,
+			.height = VK_TARGET_H,
+			.layers = 1,
+		};
+		assert(vkCreateFramebuffer(device, &info, NULL, &framebuffer) == VK_SUCCESS);
+	}
+
+	VkBuffer buffer;
+	{
+		VkBufferCreateInfo info = {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+			.size = sizeof(attr_in),
+			.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		};
+		assert(vkCreateBuffer(device, &info, NULL, &buffer) == VK_SUCCESS);
+	}
+	VkDeviceMemory bufferMemory;
+	{
+		VkMemoryRequirements requirements;
+		vkGetBufferMemoryRequirements(device, buffer, &requirements);
+
+		VkMemoryAllocateInfo info = {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+			.allocationSize = requirements.size,
+			.memoryTypeIndex = HostVisMemoryTypeIndex,
+		};
+		assert(vkAllocateMemory(device, &info, NULL, &bufferMemory) == VK_SUCCESS);
+		assert(vkBindBufferMemory(device, buffer, bufferMemory, 0) == VK_SUCCESS);
+
+		void* data;
+		assert(vkMapMemory(device, bufferMemory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS);
+		memcpy(data, attr_in, sizeof(attr_in));
+		vkUnmapMemory(device, bufferMemory);
+	}
+
+	VkShaderModule vs = createShaderModule(device, "vert.spv");
+	VkShaderModule fs = createShaderModule(device, "frag.spv");
+
+	VkSampler sampler;
+	{
+		VkSamplerCreateInfo info = {
+			.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+			.minFilter = VK_FILTER_NEAREST,
+			.magFilter = VK_FILTER_NEAREST,
+			.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			.maxLod = 15.0,
+		};
+		assert(vkCreateSampler(device, &info, NULL, &sampler) == VK_SUCCESS);
+	}
 
 	VkDescriptorSetLayout descriptorSetLayout;
 	{
-		VkDescriptorSetLayoutBinding bindings[2] = {
-			[0] = {
-				.binding = 0,
-				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				.descriptorCount = 1,
-				.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-			},
-			[1] = {
-				.binding = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				.descriptorCount = 1,
-				.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-			},
+		VkDescriptorSetLayoutBinding binding = {
+			.binding = 0,
+			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
 		};
 
 		VkDescriptorSetLayoutCreateInfo info = {
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-			.bindingCount = 2,
-			.pBindings = bindings,
+			.bindingCount = 1,
+			.pBindings = &binding,
 		};
 
 		assert(vkCreateDescriptorSetLayout(device, &info, NULL, &descriptorSetLayout) == VK_SUCCESS);
@@ -433,8 +525,8 @@ void render_vulkan(void)
 	VkDescriptorPool descriptorPool;
 	{
 		VkDescriptorPoolSize size = {
-			.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-			.descriptorCount = 2,
+			.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.descriptorCount = 1,
 		};
 		VkDescriptorPoolCreateInfo info = {
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -460,22 +552,19 @@ void render_vulkan(void)
 	}
 
 	{
-		VkDescriptorImageInfo infos[2] = {
-			[0] = {
-				.imageView = imageInView,
-			},
-			[1] = {
-				.imageView = imageOutView,
-			},
+		VkDescriptorImageInfo info = {
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			.imageView = imageInView,
+			.sampler = sampler,
 		};
 
 		VkWriteDescriptorSet write = {
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			.dstSet = descriptorSet,
 			.dstBinding = 0,
-			.descriptorCount = 2,
-			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-			.pImageInfo = infos,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.pImageInfo = &info,
 		};
 
 		vkUpdateDescriptorSets(device, 1, &write, 0, NULL);
@@ -493,33 +582,147 @@ void render_vulkan(void)
 
 	VkPipeline pipeline;
 	{
-		VkPipelineShaderStageCreateInfo stage = {
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-			.module = cs,
-			.pName = "main",
+		VkVertexInputBindingDescription binding = {
+			.binding = 0,
+			.stride = 4 * sizeof(float),
 		};
 
-		VkComputePipelineCreateInfo info = {
-			.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-			.stage = stage,
-			.layout = pipelineLayout,
+		VkVertexInputAttributeDescription attributes[2] = {
+			[0] = {
+				.binding = 0,
+				.location = 0,
+				.format = VK_FORMAT_R32G32_SFLOAT,
+				.offset = 0,
+			},
+			[1] = {
+				.binding = 0,
+				.location = 1,
+				.format = VK_FORMAT_R32G32_SFLOAT,
+				.offset = 2 * sizeof(float),
+			},
 		};
-		assert(vkCreateComputePipelines(device, NULL, 1, &info, NULL, &pipeline) == VK_SUCCESS);
+
+		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+			.vertexBindingDescriptionCount = 1,
+			.pVertexBindingDescriptions = &binding,
+			.vertexAttributeDescriptionCount = 2,
+			.pVertexAttributeDescriptions = attributes,
+		};
+
+		VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+			.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		};
+
+		VkViewport viewport = {
+			.width = VK_TARGET_W,
+			.height = VK_TARGET_H,
+			.maxDepth = 1.0f,
+		};
+
+		VkRect2D scissor = {
+			{0, 0}, {VK_TARGET_W, VK_TARGET_H}
+		};
+
+		VkPipelineViewportStateCreateInfo viewportInfo = {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+			.viewportCount = 1,
+			.pViewports = &viewport,
+			.scissorCount = 1,
+			.pScissors = &scissor,
+		};
+
+		VkPipelineRasterizationStateCreateInfo rasterizationInfo = {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+			.lineWidth = 1.0f,
+		};
+
+		VkPipelineMultisampleStateCreateInfo multisampleInfo = {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+			.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+		};
+
+		VkPipelineColorBlendAttachmentState blend = {
+			.colorWriteMask =
+			VK_COLOR_COMPONENT_R_BIT |
+			VK_COLOR_COMPONENT_G_BIT |
+			VK_COLOR_COMPONENT_B_BIT |
+			VK_COLOR_COMPONENT_A_BIT,
+		};
+		VkPipelineColorBlendStateCreateInfo colorBlendInfo = {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+			.attachmentCount = 1,
+			.pAttachments = &blend,
+		};
+
+		VkPipelineShaderStageCreateInfo stages[2] = {
+			[0] = {
+				.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+				.stage = VK_SHADER_STAGE_VERTEX_BIT,
+				.module = vs,
+				.pName = "main",
+			},
+			[1] = {
+				.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+				.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+				.module = fs,
+				.pName = "main",
+			},
+		};
+
+		VkGraphicsPipelineCreateInfo info = {
+			.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+			.stageCount = 2,
+			.pStages = stages,
+			.pVertexInputState = &vertexInputInfo,
+			.pInputAssemblyState = &inputAssemblyInfo,
+			.pViewportState = &viewportInfo,
+			.pRasterizationState = &rasterizationInfo,
+			.pMultisampleState = &multisampleInfo,
+			.pColorBlendState = &colorBlendInfo,
+			.layout = pipelineLayout,
+			.renderPass = renderPass,
+			.subpass = 0,
+		};
+		assert(vkCreateGraphicsPipelines(device, NULL, 1, &info, NULL, &pipeline) == VK_SUCCESS);
 	}
 
 	{
 		VkCommandBufferBeginInfo info = {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 		};
 		assert(vkBeginCommandBuffer(commandBuffer, &info) == VK_SUCCESS);
 	}
 
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, NULL);
+	{
+		VkClearValue color = {
+			.color = {
+				.float32 = {0},
+			},
+		};
+		VkRenderPassBeginInfo info = {
+			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+			.renderPass = renderPass,
+			.framebuffer = framebuffer,
+			.renderArea = {{0, 0}, {VK_TARGET_W, VK_TARGET_H}},
+			.clearValueCount = 1,
+			.pClearValues = &color,
+		};
+		vkCmdBeginRenderPass(commandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
+	}
 
-	vkCmdDispatch(commandBuffer, VK_TARGET_W >> 4, VK_TARGET_H >> 4, 1);
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, NULL);
+
+	{
+		VkDeviceSize offset = 0;
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &buffer, &offset);
+	}
+
+	vkCmdDraw(commandBuffer, 6, 1, 0, 0);
+
+	vkCmdEndRenderPass(commandBuffer);
 
 	assert(vkEndCommandBuffer(commandBuffer) == VK_SUCCESS);
 
@@ -643,14 +846,14 @@ GLuint LoadShader(const char *name, GLenum type)
 	return shader;
 }
 
-void InitGLES(void)
+void InitGLES(const char *vert, const char *frag)
 {
 	GLuint program;
 	GLint linked;
 	GLuint vertexShader;
 	GLuint fragmentShader;
-	assert((vertexShader = LoadShader("vert.glsl", GL_VERTEX_SHADER)) != 0);
-	assert((fragmentShader = LoadShader("frag.glsl", GL_FRAGMENT_SHADER)) != 0);
+	assert((vertexShader = LoadShader(vert, GL_VERTEX_SHADER)) != 0);
+	assert((fragmentShader = LoadShader(frag, GL_FRAGMENT_SHADER)) != 0);
 	assert((program = glCreateProgram()) != 0);
 	glAttachShader(program, vertexShader);
 	glAttachShader(program, fragmentShader);
@@ -678,6 +881,7 @@ void Render(void)
 	glViewport(0, 0, OGL_TARGET_W, OGL_TARGET_H);
 
 	assert(epoxy_has_egl_extension(display, "EGL_MESA_image_dma_buf_export"));
+	assert(epoxy_has_egl_extension(display, "EGL_EXT_image_dma_buf_import_modifiers"));
 
 	GLuint fbid;
 	glGenFramebuffers(1, &fbid);
@@ -723,13 +927,11 @@ void Render(void)
 	EGLBoolean ret = eglExportDMABUFImageQueryMESA(display, image, &img_fourcc,
 						       &img_num_planes, img_modifiers);
 	assert(ret == EGL_TRUE);
+
+	printf("num planes = %d\n", img_num_planes);
 	assert(img_num_planes <= MAX_PLANES);
 
 	assert(eglExportDMABUFImageMESA(display, image, img_fds, img_strides, img_offsets));
-
-	for (int i = 0; i < img_num_planes; i++)
-		printf("plane %d: fd=%d offset=%x stride=%x\n",
-		       i, img_fds[i], img_offsets[i], img_strides[i]);
 
 	GLubyte result[OGL_TARGET_W * OGL_TARGET_H * 4] = {0};
 	glReadPixels(0, 0, OGL_TARGET_W, OGL_TARGET_H, GL_RGBA, GL_UNSIGNED_BYTE, result);
@@ -743,38 +945,17 @@ void Render(void)
 void render_opengl(void)
 {
 	RenderTargetInit("/dev/dri/renderD128");
-	InitGLES();
+	InitGLES("vert.glsl", "frag.glsl");
 	Render();
 }
 
-void InitCompute(void)
+void Texture(void)
 {
-	GLuint program;
-	GLint linked;
-	GLuint computeShader;
-	assert((computeShader = LoadShader("shader.comp", GL_COMPUTE_SHADER)) != 0);
-	assert((program = glCreateProgram()) != 0);
-	glAttachShader(program, computeShader);
-	glLinkProgram(program);
-	glGetProgramiv(program, GL_LINK_STATUS, &linked);
-	if (!linked) {
-		GLint infoLen = 0;
-		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infoLen);
-		if (infoLen > 1) {
-			char *infoLog = malloc(infoLen);
-			glGetProgramInfoLog(program, infoLen, NULL, infoLog);
-			fprintf(stderr, "Error linking program:\n%s\n", infoLog);
-			free(infoLog);
-		}
-		glDeleteProgram(program);
-		exit(1);
-	}
+	glViewport(0, 0, VK_TARGET_W, VK_TARGET_H);
 
-	glUseProgram(program);
-}
+	assert(epoxy_has_egl_extension(display, "EGL_EXT_image_dma_buf_import"));
+	assert(epoxy_has_egl_extension(display, "EGL_EXT_image_dma_buf_import_modifiers"));
 
-void Compute(void)
-{
 	EGLint attrib_list[6 + MAX_PLANES * 10 + 1] = {0};
 	unsigned num = 0;
 
@@ -793,10 +974,12 @@ void Compute(void)
 	attrib_list[num++] = img_offsets[0];
 	attrib_list[num++] = EGL_DMA_BUF_PLANE0_PITCH_EXT;
 	attrib_list[num++] = img_strides[0];
+#ifndef USE_OPTIMAL
 	attrib_list[num++] = EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT;
 	attrib_list[num++] = img_modifiers[0];
 	attrib_list[num++] = EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT;
 	attrib_list[num++] = img_modifiers[0] >> 32;
+#endif
 
 	if (img_num_planes > 1) {
 		attrib_list[num++] = EGL_DMA_BUF_PLANE1_FD_EXT;
@@ -805,10 +988,12 @@ void Compute(void)
 		attrib_list[num++] = img_offsets[1];
 		attrib_list[num++] = EGL_DMA_BUF_PLANE1_PITCH_EXT;
 		attrib_list[num++] = img_strides[1];
+#ifndef USE_OPTIMAL
 		attrib_list[num++] = EGL_DMA_BUF_PLANE1_MODIFIER_LO_EXT;
 		attrib_list[num++] = img_modifiers[1];
 		attrib_list[num++] = EGL_DMA_BUF_PLANE1_MODIFIER_HI_EXT;
 		attrib_list[num++] = img_modifiers[1] >> 32;
+#endif
 	}
 
 	if (img_num_planes > 2) {
@@ -818,10 +1003,12 @@ void Compute(void)
 		attrib_list[num++] = img_offsets[2];
 		attrib_list[num++] = EGL_DMA_BUF_PLANE2_PITCH_EXT;
 		attrib_list[num++] = img_strides[2];
+#ifndef USE_OPTIMAL
 		attrib_list[num++] = EGL_DMA_BUF_PLANE2_MODIFIER_LO_EXT;
 		attrib_list[num++] = img_modifiers[2];
 		attrib_list[num++] = EGL_DMA_BUF_PLANE2_MODIFIER_HI_EXT;
 		attrib_list[num++] = img_modifiers[2] >> 32;
+#endif
 	}
 
 	attrib_list[num++] = EGL_NONE;
@@ -830,44 +1017,67 @@ void Compute(void)
 					   NULL, attrib_list);
 	assert(image != EGL_NO_IMAGE_KHR);
 
+	glActiveTexture(GL_TEXTURE0);
+
 	GLuint tex_in = 0;
         glGenTextures(1, &tex_in);
 	glBindTexture(GL_TEXTURE_2D, tex_in);
 	glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	assert(glGetError() == GL_NO_ERROR);
-	glBindImageTexture(0, tex_in, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA8);
 
 	GLuint tex_out;
         glGenTextures(1, &tex_out);
 	glBindTexture(GL_TEXTURE_2D, tex_out);
-	glTextureStorage2D(tex_out, 1, GL_RGBA8, VK_TARGET_W, VK_TARGET_H);	
-	glBindImageTexture(1, tex_out, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+	glTextureStorage2D(tex_out, 1, GL_RGBA8, VK_TARGET_W, VK_TARGET_H);
 
-	glDispatchCompute(VK_TARGET_W >> 4, VK_TARGET_H >> 4, 1);
-	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+	GLuint fbid;
+	glGenFramebuffers(1, &fbid);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbid);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex_out, 0);
+	CheckFrameBufferStatus();
+	
+	glBindTexture(GL_TEXTURE_2D, tex_in);
+
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, 0, 4 * sizeof(float), attr_in);
+
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, 0, 4 * sizeof(float), attr_in + 2);
 
 	assert(glGetError() == GL_NO_ERROR);
+	
+	glUniform1i(0, 0);
+
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+	assert(glGetError() == GL_NO_ERROR);
+
+	glFinish();
 
 	GLubyte *result = calloc(1, VK_TARGET_W * VK_TARGET_H * 4);
 	glGetTextureImage(tex_out, 0, GL_RGBA, GL_UNSIGNED_BYTE,
 			  VK_TARGET_W * VK_TARGET_H * 4, result);
 	assert(glGetError() == GL_NO_ERROR);
 
-	assert(!writeImage("compute.png", VK_TARGET_W, VK_TARGET_H, VK_TARGET_W * 4,
+	assert(!writeImage("texture.png", VK_TARGET_W, VK_TARGET_H, VK_TARGET_W * 4,
 			   result, "hello"));
 }
 
-void render_compute(void)
+void render_texture(void)
 {
 	RenderTargetInit("/dev/dri/renderD128");
-	InitCompute();
-	Compute();
+	InitGLES("shader.vert", "shader.frag");
+	Texture();
 }
 
 int main(void)
 {
 	render_opengl();
 	render_vulkan();
-	//render_compute();
+	//render_texture();
 	return 0;
 }

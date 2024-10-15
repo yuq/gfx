@@ -15,6 +15,8 @@
 
 #include <vulkan/vulkan.h>
 
+//#define USE_OPTIMAL 1
+
 #define MAX_PLANES 3
 int img_fds[MAX_PLANES];
 int img_strides[MAX_PLANES];
@@ -224,7 +226,9 @@ void render_vulkan(void)
 			"VK_KHR_dedicated_allocation",
 			"VK_KHR_external_memory_fd",
 			"VK_KHR_get_memory_requirements2",
+#ifndef USE_OPTIMAL
 			"VK_EXT_image_drm_format_modifier",
+#endif
 		};
 		VkDeviceCreateInfo info = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -262,6 +266,7 @@ void render_vulkan(void)
 
 	VkImage imageIn;
 	{
+#ifndef USE_OPTIMAL
 		VkSubresourceLayout layouts[MAX_PLANES] = {0};
 		for (int i = 0; i < img_num_planes; i++) {
 			layouts[i].offset = img_offsets[i];
@@ -273,6 +278,7 @@ void render_vulkan(void)
 			.drmFormatModifierPlaneCount = img_num_planes,
 			.pPlaneLayouts = layouts,
 		};
+#endif
 		VkExternalMemoryImageCreateInfo external = {
 			.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
 #ifndef USE_OPTIMAL

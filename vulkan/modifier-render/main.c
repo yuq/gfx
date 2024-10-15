@@ -15,6 +15,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include <drm/drm_fourcc.h>
+
 //#define USE_OPTIMAL 1
 
 #define MAX_PLANES 3
@@ -236,7 +238,9 @@ void render_vulkan(void)
 			"VK_KHR_dedicated_allocation",
 			"VK_KHR_external_memory_fd",
 			"VK_KHR_get_memory_requirements2",
+#ifndef USE_OPTIMAL
 			"VK_EXT_image_drm_format_modifier",
+#endif
 		};
 		VkDeviceCreateInfo info = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -274,6 +278,7 @@ void render_vulkan(void)
 
 	VkImage imageIn;
 	{
+#ifndef USE_OPTIMAL
 		VkSubresourceLayout layouts[MAX_PLANES] = {0};
 		for (int i = 0; i < img_num_planes; i++) {
 			layouts[i].offset = img_offsets[i];
@@ -285,6 +290,7 @@ void render_vulkan(void)
 			.drmFormatModifierPlaneCount = img_num_planes,
 			.pPlaneLayouts = layouts,
 		};
+#endif
 		VkExternalMemoryImageCreateInfo external = {
 			.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
 #ifndef USE_OPTIMAL
@@ -928,7 +934,26 @@ void Render(void)
 						       &img_num_planes, img_modifiers);
 	assert(ret == EGL_TRUE);
 
-	printf("num planes = %d\n", img_num_planes);
+	printf("num planes=%d modifier=%" PRIx64 "\n", img_num_planes, img_modifiers[0]);
+	printf("TILE_VERSION=%u TILE=%u DCC=%u DCC_RETILE=%u DCC_PIPE_ALIGN=%u\n"
+	       "DCC_INDEPENDENT_64B=%u DCC_INDEPENDENT_128B=%u DCC_MAX_COMPRESSED_BLOCK=%u\n"
+	       "DCC_CONSTANT_ENCODE=%u PIPE_XOR_BITS=%u BANK_XOR_BITS=%u\n"
+	       "PACKERS=%u RB=%u PIPE=%u\n",
+	       (unsigned)AMD_FMT_MOD_GET(TILE_VERSION, img_modifiers[0]),
+	       (unsigned)AMD_FMT_MOD_GET(TILE, img_modifiers[0]),
+	       (unsigned)AMD_FMT_MOD_GET(DCC, img_modifiers[0]),
+	       (unsigned)AMD_FMT_MOD_GET(DCC_RETILE, img_modifiers[0]),
+	       (unsigned)AMD_FMT_MOD_GET(DCC_PIPE_ALIGN, img_modifiers[0]),
+	       (unsigned)AMD_FMT_MOD_GET(DCC_INDEPENDENT_64B, img_modifiers[0]),
+	       (unsigned)AMD_FMT_MOD_GET(DCC_INDEPENDENT_128B, img_modifiers[0]),
+	       (unsigned)AMD_FMT_MOD_GET(DCC_MAX_COMPRESSED_BLOCK, img_modifiers[0]),
+	       (unsigned)AMD_FMT_MOD_GET(DCC_CONSTANT_ENCODE, img_modifiers[0]),
+	       (unsigned)AMD_FMT_MOD_GET(PIPE_XOR_BITS, img_modifiers[0]),
+	       (unsigned)AMD_FMT_MOD_GET(BANK_XOR_BITS, img_modifiers[0]),
+	       (unsigned)AMD_FMT_MOD_GET(PACKERS, img_modifiers[0]),
+	       (unsigned)AMD_FMT_MOD_GET(RB, img_modifiers[0]),
+	       (unsigned)AMD_FMT_MOD_GET(PIPE, img_modifiers[0]));
+
 	assert(img_num_planes <= MAX_PLANES);
 
 	assert(eglExportDMABUFImageMESA(display, image, img_fds, img_strides, img_offsets));

@@ -145,6 +145,18 @@ static VkShaderModule createShaderModule(VkDevice device, const char *name)
 	return shader;
 }
 
+VkFormat drm_format_to_vk_format(int format)
+{
+	switch (format) {
+	case DRM_FORMAT_ABGR8888:
+		return VK_FORMAT_R8G8B8A8_UNORM;
+	default:
+		printf("no VkFormat for drm format %x\n", format);
+		assert(0);
+		return VK_FORMAT_UNDEFINED;
+	}
+}
+
 void render_vulkan(void)
 {
 	VkInstance inst;
@@ -276,6 +288,39 @@ void render_vulkan(void)
 		assert(vkAllocateCommandBuffers(device, &info, &commandBuffer) == VK_SUCCESS);
 	}
 
+	VkFormat format = drm_format_to_vk_format(img_fourcc);
+	if (img_modifiers[0] != DRM_FORMAT_MOD_INVALID) {
+	        VkDrmFormatModifierPropertiesListEXT mprop = {
+			.sType = VK_STRUCTURE_TYPE_DRM_FORMAT_MODIFIER_PROPERTIES_LIST_EXT,
+		};
+		VkFormatProperties2 prop = {
+			.sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2,
+			.pNext = &mprop,
+		};
+		vkGetPhysicalDeviceFormatProperties2(phys, format, &prop);
+
+		assert(mprop.drmFormatModifierCount);
+		VkDrmFormatModifierPropertiesEXT mprops[mprop.drmFormatModifierCount];
+		mprop.pDrmFormatModifierProperties = mprops;
+		vkGetPhysicalDeviceFormatProperties2(phys, format, &prop);
+
+		bool found = false;
+		for (int i = 0; i < mprop.drmFormatModifierCount; i++) {
+			if (img_modifiers[0] == mprops[i].drmFormatModifier) {
+				assert(img_num_planes == mprops[i].drmFormatModifierPlaneCount);
+				found = mprops[i].drmFormatModifierTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
+				break;
+			}
+		}
+		printf("format %x with modifier %" PRIx64, img_fourcc, img_modifiers[0]);
+		if (!found) {
+			printf(" not supported\n");
+			return;
+		} else {
+			printf(" supported\n");
+		}
+	}
+
 	VkImage imageIn;
 	{
 #ifndef USE_OPTIMAL
@@ -302,7 +347,7 @@ void render_vulkan(void)
 			.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 			.pNext = &external,
 			.imageType = VK_IMAGE_TYPE_2D,
-			.format = VK_FORMAT_R8G8B8A8_UNORM,
+			.format = format,
 			.extent = {OGL_TARGET_W, OGL_TARGET_H, 1},
 			.mipLevels = 1,
 			.arrayLayers = 1,
@@ -887,7 +932,6 @@ void Render(void)
 	glViewport(0, 0, OGL_TARGET_W, OGL_TARGET_H);
 
 	assert(epoxy_has_egl_extension(display, "EGL_MESA_image_dma_buf_export"));
-	assert(epoxy_has_egl_extension(display, "EGL_EXT_image_dma_buf_import_modifiers"));
 
 	GLuint fbid;
 	glGenFramebuffers(1, &fbid);
@@ -974,12 +1018,59 @@ void render_opengl(void)
 	Render();
 }
 
+bool gl_check_support(int format, uint64_t modifier)
+{
+	int num_formats = 0;
+	assert(eglQueryDmaBufFormatsEXT(display, 0, NULL, &num_formats) == EGL_TRUE);
+	assert(num_formats);
+
+	int formats[num_formats];
+	assert(eglQueryDmaBufFormatsEXT(display, num_formats, formats, &num_formats) == EGL_TRUE);
+
+	bool found = false;
+	for (int i = 0; i < num_formats; i++) {
+		if (formats[i] == format) {
+			found = true;
+			break;
+		}
+	}
+	if (!found)
+		return false;
+
+	int num_modifiers = 0;
+	assert(eglQueryDmaBufModifiersEXT(display, format, 0, NULL, NULL, &num_modifiers) == EGL_TRUE);
+	assert(num_modifiers);
+
+	EGLuint64KHR modifiers[num_modifiers];
+	EGLBoolean external_only[num_modifiers];
+	assert(eglQueryDmaBufModifiersEXT(display, format, num_modifiers, modifiers, external_only, &num_modifiers) == EGL_TRUE);
+
+	found = false;
+	for (int i = 0; i < num_modifiers; i++) {
+		if (modifiers[i] == modifier && !external_only[i]) {
+			found = true;
+			break;
+		}
+	}
+	return found;
+}
+
 void Texture(void)
 {
 	glViewport(0, 0, VK_TARGET_W, VK_TARGET_H);
 
 	assert(epoxy_has_egl_extension(display, "EGL_EXT_image_dma_buf_import"));
 	assert(epoxy_has_egl_extension(display, "EGL_EXT_image_dma_buf_import_modifiers"));
+
+	if (img_modifiers[0] != DRM_FORMAT_MOD_INVALID) {
+		printf("format %x with modifier %" PRIx64, img_fourcc, img_modifiers[0]);
+		if (!gl_check_support(img_fourcc, img_modifiers[0])) {
+			printf(" not supported\n");
+			return;
+		} else {
+			printf(" supported\n");
+		}
+	}
 
 	EGLint attrib_list[6 + MAX_PLANES * 10 + 1] = {0};
 	unsigned num = 0;

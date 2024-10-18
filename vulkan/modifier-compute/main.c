@@ -15,6 +15,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include <drm/drm_fourcc.h>
+
 //#define USE_OPTIMAL 1
 
 #define MAX_PLANES 3
@@ -131,6 +133,18 @@ static VkShaderModule createShaderModule(VkDevice device, const char *name)
 	free(code);
 
 	return shader;
+}
+
+VkFormat drm_format_to_vk_format(int format)
+{
+	switch (format) {
+	case DRM_FORMAT_ABGR8888:
+		return VK_FORMAT_R8G8B8A8_UNORM;
+	default:
+		printf("no VkFormat for drm format %x\n", format);
+		assert(0);
+		return VK_FORMAT_UNDEFINED;
+	}
 }
 
 void render_vulkan(void)
@@ -264,6 +278,39 @@ void render_vulkan(void)
 		assert(vkAllocateCommandBuffers(device, &info, &commandBuffer) == VK_SUCCESS);
 	}
 
+	VkFormat format = drm_format_to_vk_format(img_fourcc);
+	if (img_modifiers[0] != DRM_FORMAT_MOD_INVALID) {
+	        VkDrmFormatModifierPropertiesListEXT mprop = {
+			.sType = VK_STRUCTURE_TYPE_DRM_FORMAT_MODIFIER_PROPERTIES_LIST_EXT,
+		};
+		VkFormatProperties2 prop = {
+			.sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2,
+			.pNext = &mprop,
+		};
+		vkGetPhysicalDeviceFormatProperties2(phys, format, &prop);
+
+		assert(mprop.drmFormatModifierCount);
+		VkDrmFormatModifierPropertiesEXT mprops[mprop.drmFormatModifierCount];
+		mprop.pDrmFormatModifierProperties = mprops;
+		vkGetPhysicalDeviceFormatProperties2(phys, format, &prop);
+
+		bool found = false;
+		for (int i = 0; i < mprop.drmFormatModifierCount; i++) {
+			if (img_modifiers[0] == mprops[i].drmFormatModifier) {
+				assert(img_num_planes == mprops[i].drmFormatModifierPlaneCount);
+				found = mprops[i].drmFormatModifierTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT;
+				break;
+			}
+		}
+		printf("format %x with modifier %" PRIx64, img_fourcc, img_modifiers[0]);
+		if (!found) {
+			printf(" not supported\n");
+			return;
+		} else {
+			printf(" supported\n");
+		}
+	}
+
 	VkImage imageIn;
 	{
 #ifndef USE_OPTIMAL
@@ -290,7 +337,7 @@ void render_vulkan(void)
 			.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 			.pNext = &external,
 			.imageType = VK_IMAGE_TYPE_2D,
-			.format = VK_FORMAT_R8G8B8A8_UNORM,
+			.format = format,
 			.extent = {OGL_TARGET_W, OGL_TARGET_H, 1},
 			.mipLevels = 1,
 			.arrayLayers = 1,
@@ -799,10 +846,12 @@ void Compute(void)
 	attrib_list[num++] = img_offsets[0];
 	attrib_list[num++] = EGL_DMA_BUF_PLANE0_PITCH_EXT;
 	attrib_list[num++] = img_strides[0];
+#ifndef USE_OPTIMAL
 	attrib_list[num++] = EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT;
 	attrib_list[num++] = img_modifiers[0];
 	attrib_list[num++] = EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT;
 	attrib_list[num++] = img_modifiers[0] >> 32;
+#endif
 
 	if (img_num_planes > 1) {
 		attrib_list[num++] = EGL_DMA_BUF_PLANE1_FD_EXT;
@@ -811,10 +860,12 @@ void Compute(void)
 		attrib_list[num++] = img_offsets[1];
 		attrib_list[num++] = EGL_DMA_BUF_PLANE1_PITCH_EXT;
 		attrib_list[num++] = img_strides[1];
+#ifndef USE_OPTIMAL
 		attrib_list[num++] = EGL_DMA_BUF_PLANE1_MODIFIER_LO_EXT;
 		attrib_list[num++] = img_modifiers[1];
 		attrib_list[num++] = EGL_DMA_BUF_PLANE1_MODIFIER_HI_EXT;
 		attrib_list[num++] = img_modifiers[1] >> 32;
+#endif
 	}
 
 	if (img_num_planes > 2) {
@@ -824,10 +875,12 @@ void Compute(void)
 		attrib_list[num++] = img_offsets[2];
 		attrib_list[num++] = EGL_DMA_BUF_PLANE2_PITCH_EXT;
 		attrib_list[num++] = img_strides[2];
+#ifndef USE_OPTIMAL
 		attrib_list[num++] = EGL_DMA_BUF_PLANE2_MODIFIER_LO_EXT;
 		attrib_list[num++] = img_modifiers[2];
 		attrib_list[num++] = EGL_DMA_BUF_PLANE2_MODIFIER_HI_EXT;
 		attrib_list[num++] = img_modifiers[2] >> 32;
+#endif
 	}
 
 	attrib_list[num++] = EGL_NONE;

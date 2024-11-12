@@ -1,4 +1,4 @@
 #!makefile
 
 test.out: main.cpp
-	g++ -g -o $@ $< -lvulkan
+	g++ -std=c++20 -g -o $@ $< -lvulkan

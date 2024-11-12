@@ -54,13 +54,21 @@ int main(void)
 		assert(vkEnumerateDeviceExtensionProperties(phys, NULL, &num_dev_exts, dev_exts) == VK_SUCCESS);
 	}
 
+	std::map<std::string, std::string> deprecatedExtensions = VULKAN_HPP_NAMESPACE::getDeprecatedExtensions();
+	std::map<std::string, std::string> obsoletedExtensions = VULKAN_HPP_NAMESPACE::getObsoletedExtensions();
+	std::map<std::string, std::string> promotedExtensions = VULKAN_HPP_NAMESPACE::getPromotedExtensions();
+
 	std::set<std::string> all_inst_exts = VULKAN_HPP_NAMESPACE::getInstanceExtensions();
 	for (int i = 0; i < num_inst_exts; i++)
 		all_inst_exts.erase(inst_exts[i].extensionName);
 
 	std::cout << "Missing instance extensions:\n";
-	for (std::string ext : all_inst_exts)
-		std::cout << ext << std::endl;
+	for (std::string ext : all_inst_exts) {
+		if (!deprecatedExtensions.contains(ext) &&
+		    !obsoletedExtensions.contains(ext) &&
+		    !promotedExtensions.contains(ext))
+			std::cout << ext << std::endl;
+	}
 	std::cout << std::endl;
 
 	std::set<std::string> all_dev_exts = VULKAN_HPP_NAMESPACE::getDeviceExtensions();
@@ -68,7 +76,11 @@ int main(void)
 		all_dev_exts.erase(dev_exts[i].extensionName);
 
 	std::cout << "Missing device extensions:\n";
-	for (std::string ext : all_dev_exts)
-		std::cout << ext << std::endl;
+	for (std::string ext : all_dev_exts) {
+		if (!deprecatedExtensions.contains(ext) &&
+		    !obsoletedExtensions.contains(ext) &&
+		    !promotedExtensions.contains(ext))
+			std::cout << ext << std::endl;
+	}
 	std::cout << std::endl;
 }

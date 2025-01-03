@@ -366,12 +366,8 @@ void render_vulkan(void)
 		for (int i = 1; i < img_num_planes; i++)
 			assert(img_fds[i] == -1);
 
-		VkResult (*GetMemoryFdPropertiesKHR)(
-			VkDevice                                    device,
-			VkExternalMemoryHandleTypeFlagBits          handleType,
-			int                                         fd,
-			VkMemoryFdPropertiesKHR*                    pMemoryFdProperties);
-		GetMemoryFdPropertiesKHR = vkGetDeviceProcAddr(device, "vkGetMemoryFdPropertiesKHR");
+		PFN_vkGetMemoryFdPropertiesKHR GetMemoryFdPropertiesKHR =
+			(PFN_vkGetMemoryFdPropertiesKHR)vkGetDeviceProcAddr(device, "vkGetMemoryFdPropertiesKHR");
 
 		VkMemoryFdPropertiesKHR fd_props = {
 			.sType = VK_STRUCTURE_TYPE_MEMORY_FD_PROPERTIES_KHR,
@@ -971,7 +967,7 @@ void Render(void)
 	assert(glGetError() == GL_NO_ERROR);
 
 	EGLImage image = eglCreateImage(display, context, EGL_GL_TEXTURE_2D,
-					(EGLClientBuffer)texid, NULL);
+					(EGLClientBuffer)(intptr_t)texid, NULL);
 	assert(image != EGL_NO_IMAGE);
 
 	EGLBoolean ret = eglExportDMABUFImageQueryMESA(display, image, &img_fourcc,
@@ -1167,6 +1163,8 @@ void Texture(void)
 	assert(glGetError() == GL_NO_ERROR);
 	
 	glUniform1i(0, 0);
+
+	glClear(GL_COLOR_BUFFER_BIT);
 
         glDrawArrays(GL_TRIANGLES, 0, 6);
 

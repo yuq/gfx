@@ -357,7 +357,7 @@ int main(void)
 			.binding = 0,
 			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			.descriptorCount = 1,
-			.stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT,
+			.stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT,
 		};
 
 		VkDescriptorSetLayoutCreateInfo info = {
@@ -402,7 +402,7 @@ int main(void)
 		VkDescriptorBufferInfo info = {
 			.buffer = buffer,
 			.offset = 0,
-			.range = 4,
+			.range = sizeof(color_data),
 		};
 
 		VkWriteDescriptorSet write = {

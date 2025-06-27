@@ -1,0 +1,9 @@
+#version 460 core
+#extension GL_EXT_mesh_shader : require
+
+layout(local_size_x = 1) in;
+
+void main()
+{
+    EmitMeshTasksEXT(1, 1, 1);
+}

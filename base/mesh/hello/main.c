@@ -91,6 +91,8 @@ void RenderTargetInit(void)
 	assert(eglMakeCurrent(display, surface, surface, context) == EGL_TRUE);
 
 	printf("OpenGL version %s\n", glGetString(GL_VERSION));
+
+	assert(epoxy_has_gl_extension("GL_EXT_mesh_shader"));
 }
 
 GLuint LoadShader(const char *name, GLenum type)
